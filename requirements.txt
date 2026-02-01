@@ -30,9 +30,12 @@ vaderSentiment>=3.3.2
 ta>=0.11.0
 pandas-ta>=0.3.14b
 
-# Visualization (optional)
+# Visualization
 matplotlib>=3.8.0
 plotly>=5.18.0
+
+# Streamlit UI
+streamlit>=1.29.0
 
 # Environment variables
 python-dotenv>=1.0.0

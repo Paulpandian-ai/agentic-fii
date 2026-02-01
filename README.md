@@ -92,6 +92,22 @@ pip install -r requirements.txt
 
 ## Quick Start
 
+### Streamlit Web UI (Recommended)
+
+Launch the interactive web interface:
+```bash
+streamlit run streamlit_app.py
+```
+
+This opens a browser-based UI where you can:
+- Enter any stock symbol
+- Select which agents to run
+- View interactive charts and visualizations
+- See detailed analysis results
+- Export reports as JSON
+
+![Streamlit UI](docs/streamlit_ui.png)
+
 ### Command Line Usage
 
 Analyze a single stock:
@@ -166,7 +182,8 @@ master = MasterAgent(
 
 ```
 agentic-fii/
-├── main.py                  # Main entry point
+├── main.py                  # CLI entry point
+├── streamlit_app.py         # Streamlit web UI
 ├── requirements.txt         # Python dependencies
 ├── README.md               # This file
 ├── config/
