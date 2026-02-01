@@ -1,0 +1,45 @@
+# Stock Analysis Multi-Agent Platform Dependencies
+
+# Core async framework
+asyncio-throttle==1.0.2
+
+# Data processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Financial data APIs
+yfinance>=0.2.30
+alpha-vantage>=2.3.1
+
+# HTTP requests
+aiohttp>=3.9.0
+requests>=2.31.0
+
+# Data validation
+pydantic>=2.5.0
+
+# API framework (optional for REST API)
+fastapi>=0.104.0
+uvicorn>=0.24.0
+
+# Sentiment analysis
+textblob>=0.17.1
+vaderSentiment>=3.3.2
+
+# Technical analysis
+ta>=0.11.0
+pandas-ta>=0.3.14b
+
+# Visualization (optional)
+matplotlib>=3.8.0
+plotly>=5.18.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Logging
+loguru>=0.7.2
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
