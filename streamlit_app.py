@@ -724,11 +724,15 @@ def display_supply_chain_analysis(report: AnalysisReport):
             st.markdown("#### Key Suppliers")
             if sc.key_suppliers:
                 for supplier in sc.key_suppliers[:5]:
-                    health = getattr(supplier, 'financial_health', None)
-                    status_icon = "🟢" if health == "strong" else "🟡" if health == "moderate" else "🔴"
+                    health_score = getattr(supplier, 'financial_health_score', None)
+                    # Convert numeric score (0-100) to status icon
+                    if health_score is not None:
+                        status_icon = "🟢" if health_score >= 70 else "🟡" if health_score >= 40 else "🔴"
+                    else:
+                        status_icon = "⚪"
                     st.write(f"{status_icon} **{supplier.name}** ({supplier.symbol or 'Private'})")
-                    if hasattr(supplier, 'revenue_share') and supplier.revenue_share:
-                        st.caption(f"   Revenue Share: {supplier.revenue_share*100:.1f}%")
+                    if hasattr(supplier, 'revenue_dependency') and supplier.revenue_dependency:
+                        st.caption(f"   Revenue Dependency: {supplier.revenue_dependency*100:.1f}%")
 
             if sc.critical_dependencies:
                 st.markdown("#### Critical Dependencies")
@@ -779,8 +783,12 @@ def display_customer_analysis(report: AnalysisReport):
             st.markdown("#### Key Customers/Segments")
             if ca.key_customers:
                 for customer in ca.key_customers[:5]:
-                    health = getattr(customer, 'financial_health', None)
-                    status_icon = "🟢" if health == "strong" else "🟡" if health == "moderate" else "🔴"
+                    health_score = getattr(customer, 'financial_health_score', None)
+                    # Convert numeric score (0-100) to status icon
+                    if health_score is not None:
+                        status_icon = "🟢" if health_score >= 70 else "🟡" if health_score >= 40 else "🔴"
+                    else:
+                        status_icon = "⚪"
                     segment = getattr(customer, 'segment', 'N/A') or 'N/A'
                     st.write(f"{status_icon} **{customer.name}** ({segment})")
                     if customer.revenue_contribution:
