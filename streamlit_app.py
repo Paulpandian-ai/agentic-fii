@@ -70,13 +70,81 @@ st.markdown("""
         border-radius: 5px;
         font-weight: bold;
     }
+    /* Tab container styling */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 2px;
+        gap: 8px;
+        background-color: #f8f9fa;
+        padding: 10px 15px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        justify-content: center;
     }
+
+    /* Individual tab styling */
     .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        padding-top: 10px;
-        padding-bottom: 10px;
+        height: auto;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        background-color: #ffffff;
+        border: 2px solid #e0e0e0;
+        transition: all 0.3s ease;
+        margin: 4px;
+    }
+
+    /* Tab hover effect */
+    .stTabs [data-baseweb="tab"]:hover {
+        background-color: #e3f2fd;
+        border-color: #1976d2;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Active/Selected tab */
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%) !important;
+        color: white !important;
+        border-color: #1565c0 !important;
+        box-shadow: 0 4px 12px rgba(25, 118, 210, 0.4);
+    }
+
+    /* Tab highlight bar */
+    .stTabs [data-baseweb="tab-highlight"] {
+        background-color: transparent !important;
+    }
+
+    /* Tab panel content */
+    .stTabs [data-baseweb="tab-panel"] {
+        padding-top: 20px;
+    }
+
+    /* Core agent tabs - first 6 tabs (blue theme) */
+    .stTabs [data-baseweb="tab-list"] button:nth-child(-n+6) {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border-color: #64b5f6;
+    }
+
+    .stTabs [data-baseweb="tab-list"] button:nth-child(-n+6):hover {
+        background: linear-gradient(135deg, #bbdefb 0%, #90caf9 100%);
+        border-color: #42a5f5;
+    }
+
+    /* Ecosystem agent tabs - tabs 7-11 (purple/violet theme) */
+    .stTabs [data-baseweb="tab-list"] button:nth-child(n+7):nth-child(-n+11) {
+        background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+        border-color: #ba68c8;
+    }
+
+    .stTabs [data-baseweb="tab-list"] button:nth-child(n+7):nth-child(-n+11):hover {
+        background: linear-gradient(135deg, #e1bee7 0%, #ce93d8 100%);
+        border-color: #ab47bc;
+    }
+
+    /* Tab text styling */
+    .stTabs [data-baseweb="tab"] span {
+        font-weight: 600 !important;
     }
     .ecosystem-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
