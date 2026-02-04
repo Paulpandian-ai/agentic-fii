@@ -801,8 +801,8 @@ def display_competitive_analysis(report: AnalysisReport):
 
 def display_macro_analysis(report: AnalysisReport):
     """Display macroeconomic analysis tab."""
-    if report.macro_analysis:
-        macro = report.macro_analysis
+    if report.macroeconomic_analysis:
+        macro = report.macroeconomic_analysis
 
         col1, col2 = st.columns(2)
 
@@ -863,8 +863,8 @@ def display_macro_analysis(report: AnalysisReport):
 
 def display_monetary_analysis(report: AnalysisReport):
     """Display monetary policy analysis tab."""
-    if report.monetary_analysis:
-        mon = report.monetary_analysis
+    if report.monetary_policy_analysis:
+        mon = report.monetary_policy_analysis
 
         col1, col2 = st.columns(2)
 
@@ -929,9 +929,9 @@ def display_agent_results(report: AnalysisReport):
         tab_names.append("Customers")
     if report.competitive_analysis:
         tab_names.append("Competitive")
-    if report.macro_analysis:
+    if report.macroeconomic_analysis:
         tab_names.append("Macro")
-    if report.monetary_analysis:
+    if report.monetary_policy_analysis:
         tab_names.append("Monetary")
 
     tabs = st.tabs(tab_names)
@@ -970,12 +970,12 @@ def display_agent_results(report: AnalysisReport):
             display_competitive_analysis(report)
         tab_idx += 1
 
-    if report.macro_analysis:
+    if report.macroeconomic_analysis:
         with tabs[tab_idx]:
             display_macro_analysis(report)
         tab_idx += 1
 
-    if report.monetary_analysis:
+    if report.monetary_policy_analysis:
         with tabs[tab_idx]:
             display_monetary_analysis(report)
 
