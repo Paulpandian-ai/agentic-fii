@@ -1,542 +1,546 @@
 """Portfolio Optimizer Agent - Builds optimal portfolios using Sharpe ratio optimization."""
 
 from typing import Any, Optional
-import asyncio
-
 import numpy as np
 import pandas as pd
 import yfinance as yf
 from loguru import logger
 
 from src.agents.base_agent import BaseAgent
-from src.models.schemas import (
-    PortfolioOptimization,
-    PortfolioStock,
-    AnalysisReport,
-)
 
 
 class PortfolioOptimizerAgent(BaseAgent):
     """
-    Agent responsible for portfolio optimization.
+    Agent responsible for portfolio optimization using Sharpe ratio.
 
-    Builds optimal portfolios using:
-    - Mean-Variance Optimization (Markowitz)
-    - Maximum Sharpe Ratio optimization
-    - Risk parity considerations
-    - Sector/position constraints
+    Features:
+    - Analyzes current holdings
+    - Optimizes for maximum Sharpe ratio
+    - Provides buy/sell recommendations
+    - Suggests optimal weightage
     """
 
     def __init__(
         self,
         name: str = "PortfolioOptimizer",
-        risk_free_rate: float = 0.05,
+        risk_free_rate: float = 0.045,
     ):
         super().__init__(name=name, agent_type="portfolio")
         self.risk_free_rate = risk_free_rate
 
-    async def optimize(
+    async def analyze(self, symbol: str, **kwargs) -> dict[str, Any]:
+        """Main analyze method - optimizes a portfolio of stocks."""
+        return await self.optimize_portfolio(**kwargs)
+
+    async def optimize_portfolio(
         self,
-        stock_reports: list[AnalysisReport],
-        investment_amount: float = 100000,
-        risk_tolerance: str = "moderate",
-        max_position_size: float = 0.25,
-        min_position_size: float = 0.02,
-        max_stocks: int = 15,
+        holdings: dict[str, dict] = None,  # {symbol: {shares: x, cost_basis: y}}
+        candidate_symbols: list[str] = None,
+        risk_free_rate: float = None,
+        max_position_pct: float = 0.30,
+        min_position_pct: float = 0.02,
         **kwargs,
-    ) -> PortfolioOptimization:
+    ) -> dict[str, Any]:
         """
-        Optimize portfolio based on stock analysis reports.
+        Optimize portfolio based on current holdings.
 
         Args:
-            stock_reports: List of analysis reports for candidate stocks
-            investment_amount: Total investment amount
-            risk_tolerance: "conservative", "moderate", or "aggressive"
-            max_position_size: Maximum weight for single position
-            min_position_size: Minimum weight for positions
-            max_stocks: Maximum number of stocks in portfolio
-
-        Returns:
-            PortfolioOptimization with optimal weights and metrics
+            holdings: Current holdings {symbol: {shares: N, cost_basis: price}}
+            candidate_symbols: Additional symbols to consider for buying
+            risk_free_rate: Risk-free rate for Sharpe calculation
+            max_position_pct: Maximum position size (0.30 = 30%)
+            min_position_pct: Minimum position size (0.02 = 2%)
         """
-        self.log_info(f"Optimizing portfolio with {len(stock_reports)} candidates")
+        if risk_free_rate:
+            self.risk_free_rate = risk_free_rate
+
+        holdings = holdings or {}
+        candidate_symbols = candidate_symbols or []
+
+        # Combine all symbols
+        all_symbols = list(set(list(holdings.keys()) + candidate_symbols))
+
+        if not all_symbols:
+            return {"error": "No symbols provided for optimization"}
 
         try:
-            # Filter to stocks with positive scores
-            valid_reports = [
-                r for r in stock_reports
-                if r.overall_score and r.overall_score > 40
-            ]
+            # Get historical data and current prices
+            stock_data = self._get_stock_data(all_symbols)
 
-            if len(valid_reports) < 3:
-                self.log_warning("Not enough valid stocks for optimization")
-                return PortfolioOptimization(
-                    portfolio_summary="Insufficient stocks meeting criteria for optimization"
-                )
+            if stock_data['returns'].empty:
+                return {"error": "Unable to fetch stock data"}
 
-            # Get historical returns for optimization
-            symbols = [r.symbol for r in valid_reports[:max_stocks]]
-            returns_data = await self._get_returns_data(symbols)
-
-            if returns_data.empty:
-                return PortfolioOptimization(
-                    portfolio_summary="Unable to fetch historical data for optimization"
-                )
-
-            # Calculate expected returns and covariance
-            mean_returns = returns_data.mean() * 252  # Annualized
-            cov_matrix = returns_data.cov() * 252  # Annualized
-
-            # Adjust expected returns based on analysis scores
-            adjusted_returns = self._adjust_returns_by_score(
-                mean_returns, valid_reports
+            # Calculate current portfolio value and weights
+            current_analysis = self._analyze_current_holdings(
+                holdings, stock_data['prices']
             )
 
             # Run optimization
-            optimal_weights = self._optimize_sharpe(
-                adjusted_returns,
-                cov_matrix,
-                risk_tolerance,
-                max_position_size,
-                min_position_size,
+            optimal_weights = self._optimize_for_sharpe(
+                stock_data['returns'],
+                max_position_pct,
+                min_position_pct,
             )
 
-            # Build portfolio
-            portfolio = self._build_portfolio(
+            # Calculate portfolio metrics for optimal portfolio
+            optimal_metrics = self._calculate_portfolio_metrics(
                 optimal_weights,
-                valid_reports,
-                returns_data,
-                cov_matrix,
-                investment_amount,
+                stock_data['returns'],
             )
 
-            # Add risk metrics
-            portfolio = self._add_risk_metrics(portfolio, returns_data, cov_matrix)
-
-            # Add benchmark comparison
-            portfolio = await self._add_benchmark_comparison(portfolio)
-
-            # Set constraints used
-            portfolio.max_position_size = max_position_size
-            portfolio.min_position_size = min_position_size
-            portfolio.risk_tolerance = risk_tolerance
-            portfolio.risk_free_rate = self.risk_free_rate
-
-            # Generate summary
-            portfolio.portfolio_summary = self._generate_summary(portfolio)
-            portfolio.investment_rationale = self._generate_rationale(
-                portfolio, valid_reports
+            # Generate recommendations
+            recommendations = self._generate_recommendations(
+                current_analysis,
+                optimal_weights,
+                stock_data,
             )
 
-            return portfolio
+            # Build response
+            result = {
+                "status": "success",
+                "current_portfolio": current_analysis,
+                "optimal_allocation": optimal_weights,
+                "optimal_metrics": optimal_metrics,
+                "recommendations": recommendations,
+                "stock_analysis": self._analyze_individual_stocks(
+                    all_symbols, stock_data
+                ),
+            }
+
+            return result
 
         except Exception as e:
-            self.log_warning(f"Error in portfolio optimization: {str(e)}")
-            return PortfolioOptimization(
-                portfolio_summary=f"Optimization failed: {str(e)}"
-            )
+            logger.error(f"Portfolio optimization error: {e}")
+            return {"error": str(e)}
 
-    async def analyze(self, symbol: str, **kwargs) -> dict[str, Any]:
-        """
-        Analyze method for compatibility with base agent.
-        For portfolio optimization, use the optimize() method instead.
-        """
-        return {
-            "message": "Use optimize() method for portfolio optimization",
-            "score": None,
-            "summary": "Portfolio optimizer requires multiple stocks",
-        }
-
-    async def _get_returns_data(
-        self, symbols: list[str], period: str = "2y"
-    ) -> pd.DataFrame:
-        """Get historical returns for stocks."""
+    def _get_stock_data(self, symbols: list[str], period: str = "1y") -> dict:
+        """Fetch historical data for stocks."""
         try:
+            # Download price data
             data = yf.download(
                 symbols,
                 period=period,
                 progress=False,
                 auto_adjust=True,
-            )["Close"]
+            )
 
-            if isinstance(data, pd.Series):
-                data = data.to_frame()
+            if data.empty:
+                return {"returns": pd.DataFrame(), "prices": {}}
+
+            # Handle single vs multiple symbols
+            if len(symbols) == 1:
+                close_prices = data["Close"].to_frame(name=symbols[0])
+            else:
+                close_prices = data["Close"]
 
             # Calculate daily returns
-            returns = data.pct_change().dropna()
+            returns = close_prices.pct_change().dropna()
 
-            # Remove stocks with insufficient data
-            min_observations = 252  # At least 1 year
-            valid_cols = [col for col in returns.columns if returns[col].count() >= min_observations]
-            returns = returns[valid_cols]
+            # Get current prices
+            current_prices = {}
+            for symbol in symbols:
+                try:
+                    ticker = yf.Ticker(symbol)
+                    info = ticker.info
+                    price = info.get("currentPrice") or info.get("regularMarketPrice")
+                    if price:
+                        current_prices[symbol] = price
+                    elif symbol in close_prices.columns:
+                        current_prices[symbol] = close_prices[symbol].iloc[-1]
+                except:
+                    if symbol in close_prices.columns:
+                        current_prices[symbol] = close_prices[symbol].iloc[-1]
 
-            return returns
+            # Get additional info (sector, name)
+            stock_info = {}
+            for symbol in symbols:
+                try:
+                    ticker = yf.Ticker(symbol)
+                    info = ticker.info
+                    stock_info[symbol] = {
+                        "name": info.get("shortName", symbol),
+                        "sector": info.get("sector", "Unknown"),
+                        "industry": info.get("industry", "Unknown"),
+                    }
+                except:
+                    stock_info[symbol] = {
+                        "name": symbol,
+                        "sector": "Unknown",
+                        "industry": "Unknown",
+                    }
+
+            return {
+                "returns": returns,
+                "prices": current_prices,
+                "info": stock_info,
+                "close_history": close_prices,
+            }
 
         except Exception as e:
-            logger.error(f"Error fetching returns data: {e}")
-            return pd.DataFrame()
+            logger.error(f"Error fetching stock data: {e}")
+            return {"returns": pd.DataFrame(), "prices": {}}
 
-    def _adjust_returns_by_score(
+    def _analyze_current_holdings(
         self,
-        historical_returns: pd.Series,
-        reports: list[AnalysisReport],
-    ) -> pd.Series:
-        """Adjust expected returns based on analysis scores."""
-        adjusted = historical_returns.copy()
+        holdings: dict[str, dict],
+        current_prices: dict[str, float],
+    ) -> dict:
+        """Analyze current portfolio holdings."""
+        if not holdings:
+            return {
+                "total_value": 0,
+                "positions": [],
+                "weights": {},
+            }
 
-        for report in reports:
-            if report.symbol in adjusted.index and report.overall_score:
-                # Score-based adjustment factor
-                # Score of 70 = 1.2x, Score of 50 = 1.0x, Score of 30 = 0.8x
-                adjustment = 0.8 + (report.overall_score - 30) / 100
-                adjusted[report.symbol] *= adjustment
+        positions = []
+        total_value = 0
 
-        return adjusted
+        for symbol, holding in holdings.items():
+            shares = holding.get("shares", 0)
+            cost_basis = holding.get("cost_basis", 0)
+            current_price = current_prices.get(symbol, cost_basis)
 
-    def _optimize_sharpe(
+            market_value = shares * current_price
+            total_cost = shares * cost_basis
+            gain_loss = market_value - total_cost
+            gain_loss_pct = (gain_loss / total_cost * 100) if total_cost > 0 else 0
+
+            positions.append({
+                "symbol": symbol,
+                "shares": shares,
+                "cost_basis": cost_basis,
+                "current_price": current_price,
+                "market_value": market_value,
+                "gain_loss": gain_loss,
+                "gain_loss_pct": gain_loss_pct,
+            })
+
+            total_value += market_value
+
+        # Calculate current weights
+        weights = {}
+        for pos in positions:
+            if total_value > 0:
+                pos["weight"] = pos["market_value"] / total_value
+                weights[pos["symbol"]] = pos["weight"]
+            else:
+                pos["weight"] = 0
+                weights[pos["symbol"]] = 0
+
+        return {
+            "total_value": total_value,
+            "positions": positions,
+            "weights": weights,
+        }
+
+    def _optimize_for_sharpe(
         self,
-        expected_returns: pd.Series,
-        cov_matrix: pd.DataFrame,
-        risk_tolerance: str,
+        returns: pd.DataFrame,
         max_weight: float,
         min_weight: float,
     ) -> dict[str, float]:
-        """
-        Optimize portfolio for maximum Sharpe ratio.
-        Uses numerical optimization with constraints.
-        """
-        n_assets = len(expected_returns)
-        symbols = list(expected_returns.index)
+        """Optimize portfolio weights for maximum Sharpe ratio."""
+        if returns.empty:
+            return {}
 
-        # Risk tolerance adjustment
-        risk_multipliers = {
-            "conservative": 0.5,
-            "moderate": 1.0,
-            "aggressive": 1.5,
-        }
-        risk_mult = risk_multipliers.get(risk_tolerance, 1.0)
+        symbols = list(returns.columns)
+        n_assets = len(symbols)
 
-        # Monte Carlo simulation for optimization
-        # (Simple approach - production would use scipy.optimize)
+        # Annualized metrics
+        mean_returns = returns.mean() * 252
+        cov_matrix = returns.cov() * 252
+
+        # Monte Carlo optimization
         n_portfolios = 10000
         best_sharpe = -np.inf
-        best_weights = None
+        best_weights = np.ones(n_assets) / n_assets
 
         np.random.seed(42)
 
         for _ in range(n_portfolios):
             # Generate random weights
             weights = np.random.random(n_assets)
-
-            # Apply constraints
-            weights = np.clip(weights, min_weight, max_weight)
-            weights = weights / weights.sum()  # Normalize
-
-            # Ensure constraints are met
             weights = np.clip(weights, min_weight, max_weight)
             weights = weights / weights.sum()
 
-            # Calculate portfolio metrics
-            port_return = np.dot(weights, expected_returns)
-            port_volatility = np.sqrt(
-                np.dot(weights.T, np.dot(cov_matrix.values, weights))
-            )
+            # Calculate portfolio return and volatility
+            port_return = np.dot(weights, mean_returns)
+            port_vol = np.sqrt(np.dot(weights.T, np.dot(cov_matrix.values, weights)))
 
-            # Calculate Sharpe ratio with risk adjustment
-            excess_return = port_return - self.risk_free_rate
-            adjusted_vol = port_volatility / risk_mult
-            sharpe = excess_return / adjusted_vol if adjusted_vol > 0 else 0
+            # Sharpe ratio
+            if port_vol > 0:
+                sharpe = (port_return - self.risk_free_rate) / port_vol
+                if sharpe > best_sharpe:
+                    best_sharpe = sharpe
+                    best_weights = weights.copy()
 
-            if sharpe > best_sharpe:
-                best_sharpe = sharpe
-                best_weights = weights.copy()
-
-        # Convert to dictionary
-        weights_dict = {}
+        # Create weights dictionary
+        optimal_weights = {}
         for i, symbol in enumerate(symbols):
-            weight = best_weights[i] if best_weights is not None else 1/n_assets
-            if weight >= min_weight:
-                weights_dict[symbol] = float(weight)
+            if best_weights[i] >= min_weight:
+                optimal_weights[symbol] = round(float(best_weights[i]), 4)
 
-        # Renormalize
-        total = sum(weights_dict.values())
-        weights_dict = {k: v/total for k, v in weights_dict.items()}
+        # Normalize
+        total = sum(optimal_weights.values())
+        if total > 0:
+            optimal_weights = {k: round(v/total, 4) for k, v in optimal_weights.items()}
 
-        return weights_dict
+        return optimal_weights
 
-    def _build_portfolio(
+    def _calculate_portfolio_metrics(
         self,
         weights: dict[str, float],
-        reports: list[AnalysisReport],
         returns: pd.DataFrame,
-        cov_matrix: pd.DataFrame,
-        investment_amount: float,
-    ) -> PortfolioOptimization:
-        """Build portfolio object with stock details."""
-        portfolio = PortfolioOptimization()
-        portfolio.stocks = []
+    ) -> dict:
+        """Calculate portfolio risk/return metrics."""
+        if not weights or returns.empty:
+            return {}
 
-        reports_dict = {r.symbol: r for r in reports}
+        symbols = [s for s in weights.keys() if s in returns.columns]
+        if not symbols:
+            return {}
 
-        for symbol, weight in sorted(weights.items(), key=lambda x: -x[1]):
-            report = reports_dict.get(symbol)
-
-            # Get current price
-            try:
-                ticker = yf.Ticker(symbol)
-                price = ticker.info.get("currentPrice") or ticker.info.get("regularMarketPrice")
-            except Exception:
-                price = None
-
-            position_value = investment_amount * weight
-            shares = position_value / price if price else None
-
-            # Calculate individual stock metrics
-            if symbol in returns.columns:
-                stock_returns = returns[symbol]
-                volatility = stock_returns.std() * np.sqrt(252)
-                expected_return = stock_returns.mean() * 252
-            else:
-                volatility = None
-                expected_return = None
-
-            stock = PortfolioStock(
-                symbol=symbol,
-                name=report.company_name if report else None,
-                weight=weight,
-                shares=shares,
-                current_price=price,
-                position_value=position_value,
-                overall_score=report.overall_score if report else None,
-                fundamental_score=report.fundamental_analysis.score if report and report.fundamental_analysis else None,
-                technical_score=report.technical_analysis.score if report and report.technical_analysis else None,
-                risk_score=report.risk_assessment.score if report and report.risk_assessment else None,
-                expected_return=expected_return,
-                volatility=volatility,
-                investment_thesis=report.investment_thesis if report else None,
-                key_risks=report.key_risks[:3] if report else [],
-            )
-
-            portfolio.stocks.append(stock)
-
-        portfolio.total_stocks = len(portfolio.stocks)
-
-        # Calculate portfolio-level metrics
-        weight_array = np.array([s.weight for s in portfolio.stocks])
-        symbols_in_portfolio = [s.symbol for s in portfolio.stocks]
-
-        # Filter returns and cov matrix to portfolio stocks
-        portfolio_returns = returns[[s for s in symbols_in_portfolio if s in returns.columns]]
-        portfolio_cov = cov_matrix.loc[
-            [s for s in symbols_in_portfolio if s in cov_matrix.index],
-            [s for s in symbols_in_portfolio if s in cov_matrix.columns]
-        ]
-
-        if not portfolio_returns.empty:
-            mean_returns = portfolio_returns.mean() * 252
-
-            # Align weights with available data
-            available_weights = []
-            for stock in portfolio.stocks:
-                if stock.symbol in portfolio_returns.columns:
-                    available_weights.append(stock.weight)
-
-            if available_weights:
-                weight_array = np.array(available_weights)
-                weight_array = weight_array / weight_array.sum()
-
-                portfolio.expected_return = float(np.dot(weight_array, mean_returns.values))
-                portfolio.portfolio_volatility = float(np.sqrt(
-                    np.dot(weight_array.T, np.dot(portfolio_cov.values, weight_array))
-                ))
-
-                if portfolio.portfolio_volatility > 0:
-                    portfolio.sharpe_ratio = (
-                        portfolio.expected_return - self.risk_free_rate
-                    ) / portfolio.portfolio_volatility
-
-        # Sector diversification
-        sector_weights = {}
-        for report in reports:
-            if report.symbol in weights and report.sector:
-                sector_weights[report.sector] = sector_weights.get(report.sector, 0) + weights[report.symbol]
-        portfolio.sector_weights = sector_weights
-
-        # Concentration metrics
-        sorted_weights = sorted(weights.values(), reverse=True)
-        portfolio.concentration_top5 = sum(sorted_weights[:5])
-
-        return portfolio
-
-    def _add_risk_metrics(
-        self,
-        portfolio: PortfolioOptimization,
-        returns: pd.DataFrame,
-        cov_matrix: pd.DataFrame,
-    ) -> PortfolioOptimization:
-        """Add detailed risk metrics to portfolio."""
-        symbols = [s.symbol for s in portfolio.stocks]
-        weights = np.array([s.weight for s in portfolio.stocks])
-
-        # Filter to available data
-        available_symbols = [s for s in symbols if s in returns.columns]
-        if not available_symbols:
-            return portfolio
-
-        portfolio_returns_data = returns[available_symbols]
-
-        # Calculate portfolio daily returns
-        available_weights = []
-        for stock in portfolio.stocks:
-            if stock.symbol in available_symbols:
-                available_weights.append(stock.weight)
-
-        if not available_weights:
-            return portfolio
-
-        weight_array = np.array(available_weights)
+        weight_array = np.array([weights[s] for s in symbols])
         weight_array = weight_array / weight_array.sum()
 
-        portfolio_daily_returns = portfolio_returns_data.dot(weight_array)
+        portfolio_returns = returns[symbols]
+        mean_returns = portfolio_returns.mean() * 252
+        cov_matrix = portfolio_returns.cov() * 252
 
-        # Value at Risk (Historical simulation)
-        portfolio.var_95 = float(-np.percentile(portfolio_daily_returns, 5))
-        portfolio.var_99 = float(-np.percentile(portfolio_daily_returns, 1))
+        # Portfolio return and volatility
+        port_return = float(np.dot(weight_array, mean_returns))
+        port_vol = float(np.sqrt(np.dot(weight_array.T, np.dot(cov_matrix.values, weight_array))))
 
-        # Conditional VaR (Expected Shortfall)
-        var_95_threshold = np.percentile(portfolio_daily_returns, 5)
-        tail_returns = portfolio_daily_returns[portfolio_daily_returns <= var_95_threshold]
-        if len(tail_returns) > 0:
-            portfolio.cvar_95 = float(-tail_returns.mean())
+        # Sharpe ratio
+        sharpe = (port_return - self.risk_free_rate) / port_vol if port_vol > 0 else 0
 
-        # Sortino Ratio
-        downside_returns = portfolio_daily_returns[portfolio_daily_returns < 0]
-        if len(downside_returns) > 0:
-            downside_std = downside_returns.std() * np.sqrt(252)
-            if downside_std > 0 and portfolio.expected_return:
-                portfolio.sortino_ratio = (
-                    portfolio.expected_return - self.risk_free_rate
-                ) / downside_std
+        # Portfolio daily returns for VaR
+        port_daily_returns = portfolio_returns.dot(weight_array)
 
-        # Maximum Drawdown
-        cumulative = (1 + portfolio_daily_returns).cumprod()
+        # Value at Risk
+        var_95 = float(-np.percentile(port_daily_returns, 5))
+        var_99 = float(-np.percentile(port_daily_returns, 1))
+
+        # Max Drawdown
+        cumulative = (1 + port_daily_returns).cumprod()
         running_max = cumulative.expanding().max()
         drawdowns = (cumulative - running_max) / running_max
-        portfolio.max_drawdown = float(abs(drawdowns.min()))
+        max_dd = float(abs(drawdowns.min()))
 
-        # Average correlation
-        corr_matrix = portfolio_returns_data.corr()
-        n = len(corr_matrix)
-        if n > 1:
-            # Get upper triangle excluding diagonal
-            upper_tri = corr_matrix.values[np.triu_indices(n, k=1)]
-            portfolio.correlation_avg = float(np.mean(upper_tri))
+        # Sortino ratio
+        downside_returns = port_daily_returns[port_daily_returns < 0]
+        downside_std = downside_returns.std() * np.sqrt(252) if len(downside_returns) > 0 else 0
+        sortino = (port_return - self.risk_free_rate) / downside_std if downside_std > 0 else 0
 
-        # Diversification ratio
-        individual_vols = portfolio_returns_data.std() * np.sqrt(252)
-        weighted_vol = np.dot(weight_array, individual_vols)
-        if portfolio.portfolio_volatility and portfolio.portfolio_volatility > 0:
-            portfolio.diversification_ratio = weighted_vol / portfolio.portfolio_volatility
+        return {
+            "expected_return": round(port_return, 4),
+            "volatility": round(port_vol, 4),
+            "sharpe_ratio": round(sharpe, 2),
+            "sortino_ratio": round(sortino, 2),
+            "var_95_daily": round(var_95, 4),
+            "var_99_daily": round(var_99, 4),
+            "max_drawdown": round(max_dd, 4),
+        }
 
-        return portfolio
-
-    async def _add_benchmark_comparison(
-        self, portfolio: PortfolioOptimization
-    ) -> PortfolioOptimization:
-        """Add benchmark comparison metrics."""
-        try:
-            spy = yf.Ticker("SPY")
-            spy_hist = spy.history(period="2y")
-
-            if len(spy_hist) > 252:
-                spy_returns = spy_hist['Close'].pct_change().dropna()
-
-                portfolio.benchmark = "SPY"
-                portfolio.benchmark_return = float(spy_returns.mean() * 252)
-                portfolio.benchmark_volatility = float(spy_returns.std() * np.sqrt(252))
-
-                # Alpha (simplified)
-                if portfolio.expected_return and portfolio.benchmark_return:
-                    portfolio.alpha = portfolio.expected_return - portfolio.benchmark_return
-
-                # Information ratio
-                if portfolio.alpha and portfolio.portfolio_volatility and portfolio.benchmark_volatility:
-                    tracking_error = abs(portfolio.portfolio_volatility - portfolio.benchmark_volatility)
-                    if tracking_error > 0:
-                        portfolio.information_ratio = portfolio.alpha / tracking_error
-                        portfolio.tracking_error = tracking_error
-
-        except Exception as e:
-            logger.warning(f"Error calculating benchmark metrics: {e}")
-
-        return portfolio
-
-    def _generate_summary(self, portfolio: PortfolioOptimization) -> str:
-        """Generate portfolio summary."""
-        parts = []
-
-        parts.append(f"Optimized portfolio with {portfolio.total_stocks} stocks.")
-
-        if portfolio.expected_return:
-            parts.append(f"Expected annual return: {portfolio.expected_return:.1%}.")
-
-        if portfolio.portfolio_volatility:
-            parts.append(f"Portfolio volatility: {portfolio.portfolio_volatility:.1%}.")
-
-        if portfolio.sharpe_ratio:
-            parts.append(f"Sharpe ratio: {portfolio.sharpe_ratio:.2f}.")
-
-        if portfolio.max_drawdown:
-            parts.append(f"Max drawdown: {portfolio.max_drawdown:.1%}.")
-
-        if portfolio.concentration_top5:
-            parts.append(f"Top 5 holdings: {portfolio.concentration_top5:.1%} of portfolio.")
-
-        if portfolio.alpha and portfolio.alpha > 0:
-            parts.append(f"Expected alpha vs S&P 500: {portfolio.alpha:.1%}.")
-
-        return " ".join(parts)
-
-    def _generate_rationale(
+    def _analyze_individual_stocks(
         self,
-        portfolio: PortfolioOptimization,
-        reports: list[AnalysisReport],
+        symbols: list[str],
+        stock_data: dict,
+    ) -> list[dict]:
+        """Analyze individual stocks for recommendations."""
+        results = []
+        returns = stock_data.get("returns", pd.DataFrame())
+        prices = stock_data.get("prices", {})
+        info = stock_data.get("info", {})
+
+        for symbol in symbols:
+            if symbol not in returns.columns:
+                continue
+
+            stock_returns = returns[symbol]
+
+            # Calculate metrics
+            annual_return = float(stock_returns.mean() * 252)
+            annual_vol = float(stock_returns.std() * np.sqrt(252))
+            sharpe = (annual_return - self.risk_free_rate) / annual_vol if annual_vol > 0 else 0
+
+            # Trend analysis
+            if len(stock_returns) >= 20:
+                recent_return = float(stock_returns.tail(20).mean() * 252)
+                momentum = "positive" if recent_return > annual_return else "negative"
+            else:
+                momentum = "neutral"
+
+            # Rating based on Sharpe
+            if sharpe > 1.0:
+                rating = "Strong Buy"
+            elif sharpe > 0.5:
+                rating = "Buy"
+            elif sharpe > 0:
+                rating = "Hold"
+            elif sharpe > -0.5:
+                rating = "Reduce"
+            else:
+                rating = "Sell"
+
+            results.append({
+                "symbol": symbol,
+                "name": info.get(symbol, {}).get("name", symbol),
+                "sector": info.get(symbol, {}).get("sector", "Unknown"),
+                "current_price": prices.get(symbol),
+                "annual_return": round(annual_return, 4),
+                "volatility": round(annual_vol, 4),
+                "sharpe_ratio": round(sharpe, 2),
+                "momentum": momentum,
+                "rating": rating,
+            })
+
+        return sorted(results, key=lambda x: x["sharpe_ratio"], reverse=True)
+
+    def _generate_recommendations(
+        self,
+        current_analysis: dict,
+        optimal_weights: dict[str, float],
+        stock_data: dict,
+    ) -> dict:
+        """Generate buy/sell recommendations."""
+        current_weights = current_analysis.get("weights", {})
+        total_value = current_analysis.get("total_value", 0)
+        prices = stock_data.get("prices", {})
+
+        buy_recommendations = []
+        sell_recommendations = []
+        rebalance_recommendations = []
+
+        # All symbols in consideration
+        all_symbols = set(list(current_weights.keys()) + list(optimal_weights.keys()))
+
+        for symbol in all_symbols:
+            current_wt = current_weights.get(symbol, 0)
+            optimal_wt = optimal_weights.get(symbol, 0)
+            weight_diff = optimal_wt - current_wt
+
+            current_price = prices.get(symbol, 0)
+
+            if abs(weight_diff) < 0.01:  # Less than 1% difference
+                continue
+
+            if current_wt == 0 and optimal_wt > 0:
+                # New position to buy
+                target_value = total_value * optimal_wt if total_value > 0 else optimal_wt * 10000
+                shares_to_buy = int(target_value / current_price) if current_price > 0 else 0
+
+                buy_recommendations.append({
+                    "symbol": symbol,
+                    "action": "BUY",
+                    "reason": f"Add new position at {optimal_wt*100:.1f}% allocation",
+                    "target_weight": optimal_wt,
+                    "current_weight": 0,
+                    "shares_to_buy": shares_to_buy,
+                    "estimated_cost": shares_to_buy * current_price if current_price else 0,
+                })
+
+            elif optimal_wt == 0 and current_wt > 0:
+                # Sell entire position
+                pos = next((p for p in current_analysis.get("positions", [])
+                           if p["symbol"] == symbol), None)
+
+                sell_recommendations.append({
+                    "symbol": symbol,
+                    "action": "SELL",
+                    "reason": "Remove from portfolio - low risk-adjusted returns",
+                    "target_weight": 0,
+                    "current_weight": current_wt,
+                    "shares_to_sell": pos["shares"] if pos else 0,
+                    "estimated_proceeds": pos["market_value"] if pos else 0,
+                })
+
+            elif weight_diff > 0.02:
+                # Increase position
+                additional_value = total_value * weight_diff if total_value > 0 else weight_diff * 10000
+                shares_to_buy = int(additional_value / current_price) if current_price > 0 else 0
+
+                rebalance_recommendations.append({
+                    "symbol": symbol,
+                    "action": "INCREASE",
+                    "reason": f"Increase from {current_wt*100:.1f}% to {optimal_wt*100:.1f}%",
+                    "target_weight": optimal_wt,
+                    "current_weight": current_wt,
+                    "weight_change": weight_diff,
+                    "shares_to_buy": shares_to_buy,
+                })
+
+            elif weight_diff < -0.02:
+                # Decrease position
+                reduce_value = total_value * abs(weight_diff) if total_value > 0 else abs(weight_diff) * 10000
+                shares_to_sell = int(reduce_value / current_price) if current_price > 0 else 0
+
+                rebalance_recommendations.append({
+                    "symbol": symbol,
+                    "action": "REDUCE",
+                    "reason": f"Reduce from {current_wt*100:.1f}% to {optimal_wt*100:.1f}%",
+                    "target_weight": optimal_wt,
+                    "current_weight": current_wt,
+                    "weight_change": weight_diff,
+                    "shares_to_sell": shares_to_sell,
+                })
+
+        # Add high-conviction new stock recommendations
+        stock_analysis = self._analyze_individual_stocks(
+            list(optimal_weights.keys()), stock_data
+        )
+
+        new_stock_picks = []
+        for stock in stock_analysis:
+            if stock["symbol"] not in current_weights and stock["sharpe_ratio"] > 0.5:
+                new_stock_picks.append({
+                    "symbol": stock["symbol"],
+                    "name": stock["name"],
+                    "sharpe_ratio": stock["sharpe_ratio"],
+                    "rating": stock["rating"],
+                    "reason": f"High Sharpe ratio ({stock['sharpe_ratio']:.2f}), {stock['momentum']} momentum",
+                })
+
+        return {
+            "buy": buy_recommendations,
+            "sell": sell_recommendations,
+            "rebalance": rebalance_recommendations,
+            "new_stock_picks": new_stock_picks[:5],  # Top 5
+            "summary": self._generate_recommendation_summary(
+                buy_recommendations, sell_recommendations, rebalance_recommendations
+            ),
+        }
+
+    def _generate_recommendation_summary(
+        self,
+        buy_recs: list,
+        sell_recs: list,
+        rebalance_recs: list,
     ) -> str:
-        """Generate investment rationale."""
+        """Generate a summary of recommendations."""
         parts = []
 
-        # Top holdings rationale
-        top_stocks = portfolio.stocks[:3]
-        if top_stocks:
-            top_names = [f"{s.symbol} ({s.weight:.0%})" for s in top_stocks]
-            parts.append(f"Top holdings: {', '.join(top_names)}.")
+        if buy_recs:
+            symbols = [r["symbol"] for r in buy_recs]
+            parts.append(f"BUY: {', '.join(symbols)}")
 
-        # Sector allocation
-        if portfolio.sector_weights:
-            top_sectors = sorted(
-                portfolio.sector_weights.items(),
-                key=lambda x: x[1],
-                reverse=True
-            )[:3]
-            sector_str = ", ".join([f"{s[0]} ({s[1]:.0%})" for s in top_sectors])
-            parts.append(f"Sector focus: {sector_str}.")
+        if sell_recs:
+            symbols = [r["symbol"] for r in sell_recs]
+            parts.append(f"SELL: {', '.join(symbols)}")
 
-        # Risk-return profile
-        if portfolio.sharpe_ratio:
-            if portfolio.sharpe_ratio > 1.5:
-                parts.append("Excellent risk-adjusted returns.")
-            elif portfolio.sharpe_ratio > 1.0:
-                parts.append("Good risk-adjusted returns.")
-            elif portfolio.sharpe_ratio > 0.5:
-                parts.append("Moderate risk-adjusted returns.")
+        increase = [r for r in rebalance_recs if r["action"] == "INCREASE"]
+        decrease = [r for r in rebalance_recs if r["action"] == "REDUCE"]
 
-        # Diversification
-        if portfolio.correlation_avg:
-            if portfolio.correlation_avg < 0.3:
-                parts.append("Well-diversified with low correlations.")
-            elif portfolio.correlation_avg < 0.5:
-                parts.append("Moderately diversified.")
-            else:
-                parts.append("Concentrated exposure - higher correlation.")
+        if increase:
+            symbols = [r["symbol"] for r in increase]
+            parts.append(f"INCREASE: {', '.join(symbols)}")
 
-        return " ".join(parts)
+        if decrease:
+            symbols = [r["symbol"] for r in decrease]
+            parts.append(f"REDUCE: {', '.join(symbols)}")
+
+        if not parts:
+            return "Portfolio is optimally balanced. No changes recommended."
+
+        return " | ".join(parts)

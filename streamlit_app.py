@@ -1100,26 +1100,18 @@ async def run_portfolio_optimization(symbols: list[str], stock_analyses: dict) -
 
 
 def display_portfolio_builder_page():
-    """Display the portfolio builder page."""
+    """Display the portfolio builder page with current holdings input."""
     st.markdown('<h1 class="main-header">📊 Portfolio Builder</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center; color: gray;">Bridgewater-Style Portfolio Optimization with Sharpe Ratio</p>',
+    st.markdown('<p style="text-align: center; color: gray;">Sharpe Ratio Optimization with Buy/Sell Recommendations</p>',
                 unsafe_allow_html=True)
+
+    # Initialize session state for holdings
+    if 'holdings_data' not in st.session_state:
+        st.session_state.holdings_data = []
 
     # Sidebar configuration
     with st.sidebar:
-        st.header("⚙️ Portfolio Configuration")
-
-        # Stock symbols input
-        symbols_input = st.text_area(
-            "Stock Symbols (one per line)",
-            value="AAPL\nMSFT\nGOOGL\nAMZN\nNVDA",
-            height=150,
-            help="Enter stock symbols, one per line"
-        )
-
-        symbols = [s.strip().upper() for s in symbols_input.split('\n') if s.strip()]
-
-        st.write(f"**Stocks in portfolio:** {len(symbols)}")
+        st.header("⚙️ Configuration")
 
         # Risk-free rate
         risk_free_rate = st.slider(
@@ -1136,258 +1128,354 @@ def display_portfolio_builder_page():
         min_weight = st.slider("Min Weight per Stock (%)", 0, 20, 2) / 100
         max_weight = st.slider("Max Weight per Stock (%)", 10, 50, 30) / 100
 
-        # Analysis mode
-        analysis_mode = st.selectbox(
-            "Analysis Depth",
-            ["core", "ecosystem", "full"],
-            index=2,
-            help="Core: Basic 4 agents | Ecosystem: +5 agents | Full: All agents"
+        st.markdown("---")
+
+        # Additional stocks to consider
+        st.subheader("Additional Stocks")
+        additional_symbols = st.text_area(
+            "Consider These Stocks (optional)",
+            value="",
+            height=100,
+            help="Enter additional stock symbols to consider for buying"
         )
+        additional_list = [s.strip().upper() for s in additional_symbols.split('\n') if s.strip()]
 
         st.markdown("---")
         optimize_button = st.button("🚀 Optimize Portfolio", type="primary", use_container_width=True)
+        clear_button = st.button("🗑️ Clear Holdings", use_container_width=True)
 
-    # Main content
-    if optimize_button and symbols:
-        with st.spinner("Analyzing stocks and optimizing portfolio... This may take a few minutes."):
-            progress_bar = st.progress(0)
-            status_text = st.empty()
+        if clear_button:
+            st.session_state.holdings_data = []
+            if 'portfolio_result' in st.session_state:
+                del st.session_state['portfolio_result']
+            st.rerun()
 
+    # Main content - Holdings Input
+    st.subheader("📝 Enter Your Current Holdings")
+
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        # Input form for adding holdings
+        with st.form("add_holding_form", clear_on_submit=True):
+            form_cols = st.columns([2, 2, 2, 1])
+
+            with form_cols[0]:
+                new_symbol = st.text_input("Symbol", placeholder="AAPL").upper()
+            with form_cols[1]:
+                new_shares = st.number_input("Shares", min_value=0.0, step=1.0, value=0.0)
+            with form_cols[2]:
+                new_cost = st.number_input("Cost Basis ($)", min_value=0.0, step=0.01, value=0.0)
+            with form_cols[3]:
+                st.write("")  # Spacer
+                add_submitted = st.form_submit_button("Add")
+
+            if add_submitted and new_symbol and new_shares > 0:
+                st.session_state.holdings_data.append({
+                    "symbol": new_symbol,
+                    "shares": new_shares,
+                    "cost_basis": new_cost if new_cost > 0 else 100.0
+                })
+                st.rerun()
+
+    with col2:
+        # Quick add presets
+        st.markdown("**Quick Add Sample Portfolio:**")
+        if st.button("Tech Portfolio", key="quick_tech"):
+            st.session_state.holdings_data = [
+                {"symbol": "AAPL", "shares": 50, "cost_basis": 150.0},
+                {"symbol": "MSFT", "shares": 30, "cost_basis": 300.0},
+                {"symbol": "GOOGL", "shares": 20, "cost_basis": 140.0},
+                {"symbol": "NVDA", "shares": 25, "cost_basis": 400.0},
+            ]
+            st.rerun()
+        if st.button("Diversified Portfolio", key="quick_div"):
+            st.session_state.holdings_data = [
+                {"symbol": "AAPL", "shares": 40, "cost_basis": 150.0},
+                {"symbol": "JPM", "shares": 30, "cost_basis": 150.0},
+                {"symbol": "JNJ", "shares": 35, "cost_basis": 160.0},
+                {"symbol": "XOM", "shares": 50, "cost_basis": 100.0},
+                {"symbol": "PG", "shares": 25, "cost_basis": 150.0},
+            ]
+            st.rerun()
+
+    # Display current holdings
+    if st.session_state.holdings_data:
+        st.markdown("---")
+        st.subheader("📋 Your Current Holdings")
+
+        holdings_df = pd.DataFrame(st.session_state.holdings_data)
+        holdings_df['Total Cost'] = holdings_df['shares'] * holdings_df['cost_basis']
+        holdings_df.columns = ['Symbol', 'Shares', 'Cost Basis ($)', 'Total Cost ($)']
+
+        # Display with delete buttons
+        for idx, row in holdings_df.iterrows():
+            cols = st.columns([2, 2, 2, 2, 1])
+            cols[0].write(f"**{row['Symbol']}**")
+            cols[1].write(f"{row['Shares']:.0f} shares")
+            cols[2].write(f"${row['Cost Basis ($)']:.2f}")
+            cols[3].write(f"${row['Total Cost ($)']:,.2f}")
+            if cols[4].button("❌", key=f"del_{idx}"):
+                st.session_state.holdings_data.pop(idx)
+                st.rerun()
+
+        total_invested = holdings_df['Total Cost ($)'].sum()
+        st.markdown(f"**Total Invested:** ${total_invested:,.2f}")
+
+    # Run optimization
+    if optimize_button:
+        holdings = st.session_state.holdings_data
+        if not holdings and not additional_list:
+            st.error("Please add at least one holding or additional stock to analyze.")
+            return
+
+        # Convert holdings to optimizer format
+        holdings_dict = {}
+        for h in holdings:
+            holdings_dict[h['symbol']] = {
+                'shares': h['shares'],
+                'cost_basis': h['cost_basis']
+            }
+
+        with st.spinner("Optimizing portfolio..."):
             try:
-                # First, analyze each stock
-                stock_analyses = {}
-                master = MasterAgent(execution_mode="parallel", analysis_mode=analysis_mode)
+                from src.agents.portfolio_optimizer_agent import PortfolioOptimizerAgent
 
-                for i, symbol in enumerate(symbols):
-                    status_text.text(f"Analyzing {symbol}... ({i+1}/{len(symbols)})")
-                    progress_bar.progress((i + 1) / (len(symbols) + 1) * 80)
+                optimizer = PortfolioOptimizerAgent(risk_free_rate=risk_free_rate)
+                result = asyncio.run(optimizer.optimize_portfolio(
+                    holdings=holdings_dict,
+                    candidate_symbols=additional_list,
+                    max_position_pct=max_weight,
+                    min_position_pct=min_weight,
+                ))
 
-                    report = asyncio.run(master.analyze(symbol))
-                    stock_analyses[symbol] = {
-                        'overall_score': report.overall_score,
-                        'recommendation': report.recommendation,
-                        'risk_level': report.risk_assessment.risk_level if report.risk_assessment else 'medium',
-                        'sharpe_ratio': report.risk_assessment.sharpe_ratio if report.risk_assessment else None,
-                        'volatility': report.risk_assessment.volatility_annual if report.risk_assessment else None,
-                        'beta': report.risk_assessment.beta if report.risk_assessment else None,
-                    }
-
-                # Run portfolio optimization
-                status_text.text("Optimizing portfolio allocation...")
-                progress_bar.progress(90)
-
-                portfolio_result = asyncio.run(run_portfolio_optimization(symbols, stock_analyses))
-
-                progress_bar.progress(100)
-                status_text.text("Optimization complete!")
-
-                # Clear progress
-                progress_bar.empty()
-                status_text.empty()
-
-                # Store results
-                st.session_state['portfolio_result'] = portfolio_result
-                st.session_state['stock_analyses'] = stock_analyses
-                st.session_state['portfolio_symbols'] = symbols
+                if result.get('error'):
+                    st.error(f"Optimization error: {result['error']}")
+                else:
+                    st.session_state['portfolio_result'] = result
+                    st.rerun()
 
             except Exception as e:
-                progress_bar.empty()
-                status_text.empty()
                 st.error(f"Error optimizing portfolio: {str(e)}")
                 return
 
-    # Display portfolio results
+    # Display results
     if 'portfolio_result' in st.session_state:
-        result = st.session_state['portfolio_result']
-        stock_analyses = st.session_state['stock_analyses']
-        symbols = st.session_state['portfolio_symbols']
-
-        display_portfolio_results(result, stock_analyses, symbols)
-
-    else:
-        st.info("👈 Enter stock symbols and click **Optimize Portfolio** to build your optimal portfolio!")
-
-        # Sample portfolios
-        st.markdown("### Sample Portfolios")
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            st.markdown("**Tech Giants**")
-            if st.button("AAPL, MSFT, GOOGL, AMZN, NVDA", key="tech"):
-                st.session_state['portfolio_input'] = "AAPL\nMSFT\nGOOGL\nAMZN\nNVDA"
-                st.rerun()
-
-        with col2:
-            st.markdown("**Diversified**")
-            if st.button("AAPL, JPM, JNJ, XOM, PG", key="diverse"):
-                st.session_state['portfolio_input'] = "AAPL\nJPM\nJNJ\nXOM\nPG"
-                st.rerun()
-
-        with col3:
-            st.markdown("**Growth**")
-            if st.button("TSLA, NVDA, AMD, META, CRM", key="growth"):
-                st.session_state['portfolio_input'] = "TSLA\nNVDA\nAMD\nMETA\nCRM"
-                st.rerun()
+        display_portfolio_results(st.session_state['portfolio_result'])
+    elif not st.session_state.holdings_data:
+        st.info("👆 Add your current holdings above or use a sample portfolio, then click **Optimize Portfolio**")
 
 
-def display_portfolio_results(result: dict, stock_analyses: dict, symbols: list):
-    """Display portfolio optimization results."""
-    data = result.get('data', {})
+def display_portfolio_results(result: dict):
+    """Display portfolio optimization results with recommendations."""
+    if result.get('status') != 'success':
+        st.error(f"Optimization failed: {result.get('error', 'Unknown error')}")
+        return
 
-    # Portfolio metrics header
-    st.subheader("🎯 Optimized Portfolio")
+    st.markdown("---")
+
+    # Current Portfolio Analysis
+    current = result.get('current_portfolio', {})
+    optimal_metrics = result.get('optimal_metrics', {})
+    optimal_weights = result.get('optimal_allocation', {})
+    recommendations = result.get('recommendations', {})
+    stock_analysis = result.get('stock_analysis', [])
+
+    # Metrics header
+    st.subheader("🎯 Portfolio Optimization Results")
 
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        sharpe = data.get('portfolio_sharpe_ratio', 0)
-        st.metric("Portfolio Sharpe Ratio", f"{sharpe:.2f}")
+        sharpe = optimal_metrics.get('sharpe_ratio', 0)
+        st.metric("Optimal Sharpe Ratio", f"{sharpe:.2f}")
 
     with col2:
-        ret = data.get('expected_annual_return', 0)
-        st.metric("Expected Annual Return", f"{ret*100:.1f}%")
+        ret = optimal_metrics.get('expected_return', 0)
+        st.metric("Expected Return", f"{ret*100:.1f}%")
 
     with col3:
-        vol = data.get('portfolio_volatility', 0)
+        vol = optimal_metrics.get('volatility', 0)
         st.metric("Portfolio Volatility", f"{vol*100:.1f}%")
 
     with col4:
-        var = data.get('portfolio_var_95', 0)
-        st.metric("Value at Risk (95%)", f"{var*100:.2f}%")
+        max_dd = optimal_metrics.get('max_drawdown', 0)
+        st.metric("Max Drawdown", f"{max_dd*100:.1f}%")
 
     st.markdown("---")
 
-    # Optimal allocation
-    col1, col2 = st.columns([1, 1])
-
-    with col1:
-        st.subheader("📊 Optimal Allocation")
-
-        stocks = data.get('stocks', [])
-        if stocks:
-            # Create allocation dataframe
-            alloc_data = []
-            for stock in stocks:
-                alloc_data.append({
-                    'Symbol': stock['symbol'],
-                    'Weight': f"{stock['optimal_weight']*100:.1f}%",
-                    'Score': f"{stock.get('analysis_score', 0):.0f}",
-                    'Recommendation': stock.get('recommendation', 'N/A'),
-                    'Expected Return': f"{stock.get('expected_return', 0)*100:.1f}%"
-                })
-
-            st.dataframe(pd.DataFrame(alloc_data), hide_index=True, use_container_width=True)
-
-            # Pie chart
-            weights = [s['optimal_weight'] for s in stocks]
-            labels = [s['symbol'] for s in stocks]
-
-            fig = px.pie(values=weights, names=labels, title="Portfolio Allocation")
-            fig.update_layout(height=350)
-            st.plotly_chart(fig, use_container_width=True)
-
-    with col2:
-        st.subheader("📈 Risk-Return Profile")
-
-        # Efficient frontier approximation
-        if stocks:
-            # Scatter plot of individual stocks
-            scatter_data = []
-            for stock in stocks:
-                scatter_data.append({
-                    'Symbol': stock['symbol'],
-                    'Return': stock.get('expected_return', 0) * 100,
-                    'Volatility': stock.get('volatility', 0) * 100,
-                    'Weight': stock['optimal_weight'] * 100
-                })
-
-            scatter_df = pd.DataFrame(scatter_data)
-
-            fig = px.scatter(scatter_df, x='Volatility', y='Return',
-                           text='Symbol', size='Weight',
-                           title='Risk-Return Profile',
-                           labels={'Volatility': 'Volatility (%)', 'Return': 'Expected Return (%)'})
-
-            # Add portfolio point
-            fig.add_trace(go.Scatter(
-                x=[data.get('portfolio_volatility', 0) * 100],
-                y=[data.get('expected_annual_return', 0) * 100],
-                mode='markers+text',
-                marker=dict(size=20, color='red', symbol='star'),
-                text=['Portfolio'],
-                textposition='top center',
-                name='Optimal Portfolio'
-            ))
-
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-
-    # Sector diversification
+    # Current vs Optimal allocation
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("🏢 Sector Diversification")
-        sector_weights = data.get('sector_weights', {})
-        if sector_weights:
-            sector_df = pd.DataFrame({
-                'Sector': list(sector_weights.keys()),
-                'Weight': [v * 100 for v in sector_weights.values()]
-            })
-            fig = px.bar(sector_df, x='Sector', y='Weight',
-                        title='Sector Allocation (%)',
-                        color='Weight', color_continuous_scale='Viridis')
-            fig.update_layout(height=350, showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+        st.subheader("📊 Current Holdings")
+        positions = current.get('positions', [])
+        if positions:
+            pos_df = pd.DataFrame(positions)
+            display_df = pos_df[['symbol', 'shares', 'current_price', 'market_value', 'weight', 'gain_loss_pct']].copy()
+            display_df.columns = ['Symbol', 'Shares', 'Price', 'Value', 'Weight', 'Gain/Loss %']
+            display_df['Price'] = display_df['Price'].apply(lambda x: f"${x:.2f}" if x else "N/A")
+            display_df['Value'] = display_df['Value'].apply(lambda x: f"${x:,.2f}")
+            display_df['Weight'] = display_df['Weight'].apply(lambda x: f"{x*100:.1f}%")
+            display_df['Gain/Loss %'] = display_df['Gain/Loss %'].apply(lambda x: f"{x:+.1f}%")
+            st.dataframe(display_df, hide_index=True, use_container_width=True)
+
+            total_val = current.get('total_value', 0)
+            st.markdown(f"**Total Portfolio Value:** ${total_val:,.2f}")
+        else:
+            st.info("No current holdings")
 
     with col2:
-        st.subheader("⚖️ Risk Metrics")
+        st.subheader("🎯 Optimal Allocation")
+        if optimal_weights:
+            opt_data = []
+            for symbol, weight in sorted(optimal_weights.items(), key=lambda x: -x[1]):
+                opt_data.append({
+                    'Symbol': symbol,
+                    'Optimal Weight': f"{weight*100:.1f}%",
+                })
+            st.dataframe(pd.DataFrame(opt_data), hide_index=True, use_container_width=True)
 
-        metrics_data = {
-            'Metric': ['Portfolio Sharpe', 'Sortino Ratio', 'VaR (95%)', 'CVaR (95%)', 'Max Drawdown Est.'],
-            'Value': [
-                f"{data.get('portfolio_sharpe_ratio', 0):.2f}",
-                f"{data.get('sortino_ratio', 0):.2f}",
-                f"{data.get('portfolio_var_95', 0)*100:.2f}%",
-                f"{data.get('portfolio_cvar_95', 0)*100:.2f}%",
-                f"{data.get('max_drawdown', 0)*100:.1f}%"
-            ]
-        }
-        st.dataframe(pd.DataFrame(metrics_data), hide_index=True, use_container_width=True)
-
-        # Benchmark comparison
-        if data.get('benchmark_sharpe'):
-            st.markdown("#### vs SPY Benchmark")
-            benchmark_data = {
-                'Metric': ['Sharpe Ratio', 'Alpha', 'Beta'],
-                'Portfolio': [
-                    f"{data.get('portfolio_sharpe_ratio', 0):.2f}",
-                    f"{data.get('alpha', 0)*100:.2f}%",
-                    f"{data.get('portfolio_beta', 0):.2f}"
-                ],
-                'SPY': [
-                    f"{data.get('benchmark_sharpe', 0):.2f}",
-                    "0.00%",
-                    "1.00"
-                ]
-            }
-            st.dataframe(pd.DataFrame(benchmark_data), hide_index=True, use_container_width=True)
+            # Pie chart
+            fig = px.pie(
+                values=list(optimal_weights.values()),
+                names=list(optimal_weights.keys()),
+                title="Optimal Allocation"
+            )
+            fig.update_layout(height=300)
+            st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
 
     # Recommendations
-    st.subheader("💡 Portfolio Recommendations")
+    st.subheader("💡 Action Recommendations")
 
-    recommendations = data.get('recommendations', [])
-    if recommendations:
-        for rec in recommendations:
-            st.info(f"→ {rec}")
+    rec_summary = recommendations.get('summary', '')
+    if rec_summary:
+        st.info(f"**Summary:** {rec_summary}")
 
-    # Investment summary
-    if result.get('summary'):
-        st.markdown("### 📋 Investment Summary")
-        st.write(result['summary'])
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # Sell recommendations
+        sell_recs = recommendations.get('sell', [])
+        if sell_recs:
+            st.markdown("### 🔴 SELL")
+            for rec in sell_recs:
+                st.error(f"""
+                **{rec['symbol']}** - Sell all shares
+                - Current Weight: {rec['current_weight']*100:.1f}%
+                - Shares to Sell: {rec.get('shares_to_sell', 'All')}
+                - Reason: {rec['reason']}
+                """)
+
+        # Reduce recommendations
+        reduce_recs = [r for r in recommendations.get('rebalance', []) if r['action'] == 'REDUCE']
+        if reduce_recs:
+            st.markdown("### 🟠 REDUCE")
+            for rec in reduce_recs:
+                st.warning(f"""
+                **{rec['symbol']}** - Reduce position
+                - Current: {rec['current_weight']*100:.1f}% → Target: {rec['target_weight']*100:.1f}%
+                - Shares to Sell: ~{rec.get('shares_to_sell', 0)}
+                """)
+
+    with col2:
+        # Buy recommendations
+        buy_recs = recommendations.get('buy', [])
+        if buy_recs:
+            st.markdown("### 🟢 BUY (New Positions)")
+            for rec in buy_recs:
+                st.success(f"""
+                **{rec['symbol']}** - Open new position
+                - Target Weight: {rec['target_weight']*100:.1f}%
+                - Shares to Buy: ~{rec.get('shares_to_buy', 0)}
+                - Est. Cost: ${rec.get('estimated_cost', 0):,.2f}
+                """)
+
+        # Increase recommendations
+        increase_recs = [r for r in recommendations.get('rebalance', []) if r['action'] == 'INCREASE']
+        if increase_recs:
+            st.markdown("### 🟢 INCREASE")
+            for rec in increase_recs:
+                st.success(f"""
+                **{rec['symbol']}** - Increase position
+                - Current: {rec['current_weight']*100:.1f}% → Target: {rec['target_weight']*100:.1f}%
+                - Shares to Buy: ~{rec.get('shares_to_buy', 0)}
+                """)
+
+    # New stock picks
+    new_picks = recommendations.get('new_stock_picks', [])
+    if new_picks:
+        st.markdown("---")
+        st.subheader("🌟 Suggested New Stocks to Consider")
+        picks_df = pd.DataFrame(new_picks)
+        picks_df = picks_df[['symbol', 'name', 'sharpe_ratio', 'rating', 'reason']]
+        picks_df.columns = ['Symbol', 'Name', 'Sharpe', 'Rating', 'Reason']
+        st.dataframe(picks_df, hide_index=True, use_container_width=True)
+
+    st.markdown("---")
+
+    # Stock Analysis Details
+    st.subheader("📈 Individual Stock Analysis")
+
+    if stock_analysis:
+        analysis_df = pd.DataFrame(stock_analysis)
+        display_cols = ['symbol', 'name', 'sector', 'current_price', 'annual_return', 'volatility', 'sharpe_ratio', 'momentum', 'rating']
+        analysis_df = analysis_df[[c for c in display_cols if c in analysis_df.columns]]
+
+        # Format columns
+        if 'current_price' in analysis_df.columns:
+            analysis_df['current_price'] = analysis_df['current_price'].apply(lambda x: f"${x:.2f}" if x else "N/A")
+        if 'annual_return' in analysis_df.columns:
+            analysis_df['annual_return'] = analysis_df['annual_return'].apply(lambda x: f"{x*100:.1f}%")
+        if 'volatility' in analysis_df.columns:
+            analysis_df['volatility'] = analysis_df['volatility'].apply(lambda x: f"{x*100:.1f}%")
+
+        analysis_df.columns = ['Symbol', 'Name', 'Sector', 'Price', 'Annual Return', 'Volatility', 'Sharpe', 'Momentum', 'Rating']
+        st.dataframe(analysis_df, hide_index=True, use_container_width=True)
+
+    # Risk metrics
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("⚖️ Risk Metrics")
+        metrics_data = {
+            'Metric': ['Sharpe Ratio', 'Sortino Ratio', 'Daily VaR (95%)', 'Daily VaR (99%)', 'Max Drawdown'],
+            'Value': [
+                f"{optimal_metrics.get('sharpe_ratio', 0):.2f}",
+                f"{optimal_metrics.get('sortino_ratio', 0):.2f}",
+                f"{optimal_metrics.get('var_95_daily', 0)*100:.2f}%",
+                f"{optimal_metrics.get('var_99_daily', 0)*100:.2f}%",
+                f"{optimal_metrics.get('max_drawdown', 0)*100:.1f}%"
+            ]
+        }
+        st.dataframe(pd.DataFrame(metrics_data), hide_index=True, use_container_width=True)
+
+    with col2:
+        # Risk-Return scatter
+        if stock_analysis:
+            st.subheader("📊 Risk-Return Profile")
+            scatter_data = []
+            for stock in stock_analysis:
+                scatter_data.append({
+                    'Symbol': stock['symbol'],
+                    'Return': stock.get('annual_return', 0) * 100,
+                    'Volatility': stock.get('volatility', 0) * 100,
+                    'Sharpe': stock.get('sharpe_ratio', 0)
+                })
+
+            scatter_df = pd.DataFrame(scatter_data)
+            fig = px.scatter(
+                scatter_df, x='Volatility', y='Return',
+                text='Symbol', color='Sharpe',
+                color_continuous_scale='RdYlGn',
+                labels={'Volatility': 'Volatility (%)', 'Return': 'Expected Return (%)'}
+            )
+            fig.update_traces(textposition='top center')
+            fig.update_layout(height=350)
+            st.plotly_chart(fig, use_container_width=True)
 
     # Export
     st.markdown("---")
