@@ -636,36 +636,42 @@ def display_supply_chain_analysis(report: AnalysisReport):
 
         with col1:
             st.markdown("#### Supply Chain Health")
-            if sc.overall_health:
-                health_color = "green" if sc.overall_health == "healthy" else "orange" if sc.overall_health == "moderate" else "red"
-                st.markdown(f"**Overall Health:** :{health_color}[{sc.overall_health.upper()}]")
+            if sc.supply_disruption_risk:
+                health_color = "green" if sc.supply_disruption_risk == "low" else "orange" if sc.supply_disruption_risk == "medium" else "red"
+                st.markdown(f"**Disruption Risk:** :{health_color}[{sc.supply_disruption_risk.upper()}]")
 
-            if sc.resilience_score is not None:
-                fig = create_gauge_chart(sc.resilience_score, "Resilience Score")
+            if sc.supply_chain_resilience is not None:
+                fig = create_gauge_chart(sc.supply_chain_resilience, "Resilience Score")
                 st.plotly_chart(fig, use_container_width=True)
 
             st.markdown("#### Risk Metrics")
-            if sc.concentration_risk is not None:
-                st.write(f"**Concentration Risk:** {sc.concentration_risk*100:.1f}%")
-            if sc.geographic_risk is not None:
-                st.write(f"**Geographic Risk:** {sc.geographic_risk*100:.1f}%")
+            if sc.supplier_concentration_risk is not None:
+                st.write(f"**Concentration Risk:** {sc.supplier_concentration_risk*100:.1f}%")
+            if sc.geographic_risk:
+                st.write(f"**Geographic Risk:** {sc.geographic_risk}")
+            if sc.suppliers_at_risk > 0:
+                st.write(f"**Suppliers at Risk:** {sc.suppliers_at_risk}")
 
         with col2:
             st.markdown("#### Key Suppliers")
-            if sc.suppliers:
-                for supplier in sc.suppliers[:5]:
-                    status_icon = "🟢" if supplier.financial_health == "strong" else "🟡" if supplier.financial_health == "moderate" else "🔴"
+            if sc.key_suppliers:
+                for supplier in sc.key_suppliers[:5]:
+                    health = getattr(supplier, 'financial_health', None)
+                    status_icon = "🟢" if health == "strong" else "🟡" if health == "moderate" else "🔴"
                     st.write(f"{status_icon} **{supplier.name}** ({supplier.symbol or 'Private'})")
-                    if supplier.relationship_strength:
-                        st.caption(f"   Relationship: {supplier.relationship_strength}")
-                    if supplier.revenue_dependency:
-                        st.caption(f"   Revenue Dependency: {supplier.revenue_dependency*100:.1f}%")
+                    if hasattr(supplier, 'revenue_share') and supplier.revenue_share:
+                        st.caption(f"   Revenue Share: {supplier.revenue_share*100:.1f}%")
+
+            if sc.critical_dependencies:
+                st.markdown("#### Critical Dependencies")
+                for dep in sc.critical_dependencies[:3]:
+                    st.write(f"• {dep}")
 
         # Supply chain risks
-        if sc.supply_chain_risks:
-            st.markdown("#### Identified Supply Chain Risks")
-            for risk in sc.supply_chain_risks:
-                st.warning(f"⚠️ {risk}")
+        if sc.supply_chain_threats:
+            st.markdown("#### Identified Supply Chain Threats")
+            for threat in sc.supply_chain_threats:
+                st.warning(f"⚠️ {threat}")
 
         if sc.analysis_summary:
             st.info(f"**Summary:** {sc.analysis_summary}")
@@ -682,16 +688,19 @@ def display_customer_analysis(report: AnalysisReport):
 
         with col1:
             st.markdown("#### Customer Base Health")
-            if ca.customer_base_health:
-                health_color = "green" if ca.customer_base_health == "strong" else "orange" if ca.customer_base_health == "moderate" else "red"
-                st.markdown(f"**Customer Base Health:** :{health_color}[{ca.customer_base_health.upper()}]")
+            if ca.customer_retention_outlook:
+                health_color = "green" if ca.customer_retention_outlook == "positive" else "orange" if ca.customer_retention_outlook == "stable" else "red"
+                st.markdown(f"**Retention Outlook:** :{health_color}[{ca.customer_retention_outlook.upper()}]")
 
             if ca.customer_concentration_risk is not None:
                 risk_level = "Low" if ca.customer_concentration_risk < 0.3 else "Medium" if ca.customer_concentration_risk < 0.6 else "High"
                 st.write(f"**Concentration Risk:** {ca.customer_concentration_risk*100:.1f}% ({risk_level})")
 
-            if ca.pricing_power is not None:
-                st.write(f"**Pricing Power:** {ca.pricing_power*100:.0f}%")
+            if ca.revenue_concentration_top5 is not None:
+                st.write(f"**Top 5 Customer Revenue:** {ca.revenue_concentration_top5*100:.1f}%")
+
+            if ca.pricing_power:
+                st.write(f"**Pricing Power:** {ca.pricing_power}")
 
             st.markdown("#### Demand Outlook")
             if ca.demand_outlook:
@@ -702,18 +711,23 @@ def display_customer_analysis(report: AnalysisReport):
             st.markdown("#### Key Customers/Segments")
             if ca.key_customers:
                 for customer in ca.key_customers[:5]:
-                    status_icon = "🟢" if customer.financial_health == "strong" else "🟡" if customer.financial_health == "moderate" else "🔴"
-                    st.write(f"{status_icon} **{customer.name}** ({customer.segment})")
+                    health = getattr(customer, 'financial_health', None)
+                    status_icon = "🟢" if health == "strong" else "🟡" if health == "moderate" else "🔴"
+                    segment = getattr(customer, 'segment', 'N/A') or 'N/A'
+                    st.write(f"{status_icon} **{customer.name}** ({segment})")
                     if customer.revenue_contribution:
                         st.caption(f"   Revenue Contribution: {customer.revenue_contribution*100:.1f}%")
-                    if customer.growth_trend:
-                        st.caption(f"   Growth Trend: {customer.growth_trend}")
+
+            if ca.segment_breakdown:
+                st.markdown("#### Segment Breakdown")
+                for segment, pct in list(ca.segment_breakdown.items())[:4]:
+                    st.write(f"• {segment}: {pct*100:.1f}%")
 
         # Customer risks
-        if ca.customer_risks:
+        if ca.customer_threats:
             st.markdown("#### Customer-Related Risks")
-            for risk in ca.customer_risks:
-                st.warning(f"⚠️ {risk}")
+            for threat in ca.customer_threats:
+                st.warning(f"⚠️ {threat}")
 
         if ca.analysis_summary:
             st.info(f"**Summary:** {ca.analysis_summary}")
@@ -730,55 +744,61 @@ def display_competitive_analysis(report: AnalysisReport):
 
         with col1:
             st.markdown("#### Competitive Position")
-            if comp.competitive_position:
-                pos_color = "green" if comp.competitive_position == "leader" else "orange" if comp.competitive_position == "challenger" else "gray"
-                st.markdown(f"**Position:** :{pos_color}[{comp.competitive_position.upper()}]")
+            if comp.market_position:
+                pos_color = "green" if comp.market_position == "leader" else "orange" if comp.market_position == "challenger" else "gray"
+                st.markdown(f"**Position:** :{pos_color}[{comp.market_position.upper()}]")
 
-            if comp.market_share is not None:
-                st.write(f"**Market Share:** {comp.market_share*100:.1f}%")
+            if comp.estimated_market_share is not None:
+                st.write(f"**Market Share:** {comp.estimated_market_share*100:.1f}%")
 
-            if comp.competitive_score is not None:
-                fig = create_gauge_chart(comp.competitive_score, "Competitive Score")
-                st.plotly_chart(fig, use_container_width=True)
+            if comp.competitive_intensity:
+                intensity_color = "red" if comp.competitive_intensity == "high" else "orange" if comp.competitive_intensity == "medium" else "green"
+                st.markdown(f"**Competitive Intensity:** :{intensity_color}[{comp.competitive_intensity.upper()}]")
 
-            st.markdown("#### Competitive Moat")
-            if comp.moat_strength:
-                st.write(f"**Moat Strength:** {comp.moat_strength.capitalize()}")
-            if comp.moat_sources:
-                st.write(f"**Moat Sources:** {', '.join(comp.moat_sources)}")
+            st.markdown("#### Rankings")
+            if comp.revenue_rank:
+                st.write(f"**Revenue Rank:** #{comp.revenue_rank}")
+            if comp.margin_rank:
+                st.write(f"**Margin Rank:** #{comp.margin_rank}")
+            if comp.growth_rank:
+                st.write(f"**Growth Rank:** #{comp.growth_rank}")
 
         with col2:
             st.markdown("#### Key Competitors")
-            if comp.competitors:
+            if comp.key_competitors:
                 # Create comparison dataframe
                 comp_data = []
-                for competitor in comp.competitors[:5]:
+                for competitor in comp.key_competitors[:5]:
+                    mkt_share = getattr(competitor, 'market_share', None)
+                    rev_growth = getattr(competitor, 'revenue_growth', None)
+                    threat = getattr(competitor, 'threat_level', None)
                     comp_data.append({
                         'Name': competitor.name,
-                        'Market Share': f"{competitor.market_share*100:.1f}%" if competitor.market_share else "N/A",
-                        'Growth': f"{competitor.revenue_growth*100:.1f}%" if competitor.revenue_growth else "N/A",
-                        'Threat': competitor.threat_level or "N/A"
+                        'Market Share': f"{mkt_share*100:.1f}%" if mkt_share else "N/A",
+                        'Growth': f"{rev_growth*100:.1f}%" if rev_growth else "N/A",
+                        'Threat': threat or "N/A"
                     })
                 if comp_data:
                     st.dataframe(pd.DataFrame(comp_data), hide_index=True)
 
             st.markdown("#### Porter's Five Forces")
-            if comp.porters_five_forces:
-                forces = comp.porters_five_forces
-                forces_data = pd.DataFrame({
-                    'Force': ['Competitive Rivalry', 'Supplier Power', 'Buyer Power', 'Threat of Substitutes', 'Threat of New Entrants'],
-                    'Score': [
-                        forces.get('competitive_rivalry', 0) * 100,
-                        forces.get('supplier_power', 0) * 100,
-                        forces.get('buyer_power', 0) * 100,
-                        forces.get('threat_of_substitutes', 0) * 100,
-                        forces.get('threat_of_new_entrants', 0) * 100
-                    ]
-                })
-                fig = px.bar(forces_data, x='Force', y='Score',
-                           color='Score', color_continuous_scale='RdYlGn_r')
-                fig.update_layout(height=300, showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
+            # Display individual Porter's Five Forces attributes
+            forces_available = any([comp.competitive_rivalry, comp.supplier_power, comp.buyer_power,
+                                   comp.threat_of_substitutes, comp.threat_of_new_entrants])
+            if forces_available:
+                forces_data = []
+                if comp.competitive_rivalry:
+                    forces_data.append({'Force': 'Competitive Rivalry', 'Level': comp.competitive_rivalry})
+                if comp.supplier_power:
+                    forces_data.append({'Force': 'Supplier Power', 'Level': comp.supplier_power})
+                if comp.buyer_power:
+                    forces_data.append({'Force': 'Buyer Power', 'Level': comp.buyer_power})
+                if comp.threat_of_substitutes:
+                    forces_data.append({'Force': 'Threat of Substitutes', 'Level': comp.threat_of_substitutes})
+                if comp.threat_of_new_entrants:
+                    forces_data.append({'Force': 'Threat of New Entrants', 'Level': comp.threat_of_new_entrants})
+                if forces_data:
+                    st.dataframe(pd.DataFrame(forces_data), hide_index=True)
 
         # Competitive advantages and threats
         col3, col4 = st.columns(2)
@@ -788,9 +808,9 @@ def display_competitive_analysis(report: AnalysisReport):
                 for adv in comp.competitive_advantages:
                     st.success(f"✓ {adv}")
         with col4:
-            if comp.competitive_threats:
-                st.markdown("#### Competitive Threats")
-                for threat in comp.competitive_threats:
+            if comp.emerging_threats:
+                st.markdown("#### Emerging Threats")
+                for threat in comp.emerging_threats:
                     st.error(f"⚠ {threat}")
 
         if comp.analysis_summary:
@@ -808,54 +828,55 @@ def display_macro_analysis(report: AnalysisReport):
 
         with col1:
             st.markdown("#### Economic Environment")
-            if macro.economic_cycle:
+            if macro.economic_cycle_phase:
                 cycle_colors = {"expansion": "green", "peak": "orange", "contraction": "red", "trough": "blue"}
-                st.markdown(f"**Economic Cycle:** :{cycle_colors.get(macro.economic_cycle, 'gray')}[{macro.economic_cycle.upper()}]")
+                st.markdown(f"**Economic Cycle:** :{cycle_colors.get(macro.economic_cycle_phase, 'gray')}[{macro.economic_cycle_phase.upper()}]")
 
-            if macro.gdp_growth is not None:
-                st.write(f"**GDP Growth:** {macro.gdp_growth*100:.2f}%")
-            if macro.inflation_rate is not None:
-                st.write(f"**Inflation Rate:** {macro.inflation_rate*100:.2f}%")
+            if macro.gdp_growth_current is not None:
+                st.write(f"**GDP Growth:** {macro.gdp_growth_current*100:.2f}%")
             if macro.unemployment_rate is not None:
                 st.write(f"**Unemployment:** {macro.unemployment_rate*100:.1f}%")
+            if macro.wage_growth is not None:
+                st.write(f"**Wage Growth:** {macro.wage_growth*100:.1f}%")
 
-            st.markdown("#### Market Conditions")
+            st.markdown("#### Consumer & Business")
             if macro.consumer_confidence is not None:
                 st.write(f"**Consumer Confidence:** {macro.consumer_confidence:.1f}")
-            if macro.market_volatility is not None:
-                st.write(f"**Market Volatility (VIX):** {macro.market_volatility:.1f}")
+            if macro.business_confidence is not None:
+                st.write(f"**Business Confidence:** {macro.business_confidence:.1f}")
+            if macro.consumer_spending_growth is not None:
+                st.write(f"**Consumer Spending:** {macro.consumer_spending_growth*100:.1f}%")
 
         with col2:
-            st.markdown("#### Sector Sensitivity")
-            if macro.sector_sensitivity:
-                sector_data = pd.DataFrame({
-                    'Sector': list(macro.sector_sensitivity.keys()),
-                    'Sensitivity': list(macro.sector_sensitivity.values())
-                })
-                fig = px.bar(sector_data, x='Sector', y='Sensitivity',
-                           color='Sensitivity', color_continuous_scale='RdYlGn')
-                fig.update_layout(height=300, showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
+            st.markdown("#### Manufacturing & Services")
+            if macro.pmi_manufacturing is not None:
+                pmi_color = "green" if macro.pmi_manufacturing > 50 else "red"
+                st.markdown(f"**Manufacturing PMI:** :{pmi_color}[{macro.pmi_manufacturing:.1f}]")
+            if macro.pmi_services is not None:
+                pmi_color = "green" if macro.pmi_services > 50 else "red"
+                st.markdown(f"**Services PMI:** :{pmi_color}[{macro.pmi_services:.1f}]")
+            if macro.industrial_production is not None:
+                st.write(f"**Industrial Production:** {macro.industrial_production*100:.1f}%")
 
-            st.markdown("#### Economic Outlook")
-            if macro.economic_outlook:
-                outlook_color = "green" if macro.economic_outlook == "positive" else "red" if macro.economic_outlook == "negative" else "gray"
-                st.markdown(f"**Outlook:** :{outlook_color}[{macro.economic_outlook.upper()}]")
+            st.markdown("#### Global & Trade")
+            if macro.global_growth_outlook:
+                outlook_color = "green" if macro.global_growth_outlook == "positive" else "red" if macro.global_growth_outlook == "negative" else "gray"
+                st.markdown(f"**Global Outlook:** :{outlook_color}[{macro.global_growth_outlook.upper()}]")
+            if macro.export_growth is not None:
+                st.write(f"**Export Growth:** {macro.export_growth*100:.1f}%")
 
-        # Macro risks and opportunities
-        col3, col4 = st.columns(2)
-        with col3:
-            if macro.macro_opportunities:
-                st.markdown("#### Macro Opportunities")
-                for opp in macro.macro_opportunities:
-                    st.success(f"✓ {opp}")
-        with col4:
-            if macro.macro_risks:
-                st.markdown("#### Macro Risks")
-                for risk in macro.macro_risks:
-                    st.warning(f"⚠️ {risk}")
+        # Leading indicators
+        if macro.leading_economic_index is not None or macro.gdp_trend:
+            st.markdown("#### Leading Indicators")
+            col3, col4 = st.columns(2)
+            with col3:
+                if macro.leading_economic_index is not None:
+                    st.write(f"**Leading Economic Index:** {macro.leading_economic_index:.1f}")
+            with col4:
+                if macro.gdp_trend:
+                    st.write(f"**GDP Trend:** {macro.gdp_trend}")
 
-        if macro.analysis_summary:
+        if hasattr(macro, 'analysis_summary') and macro.analysis_summary:
             st.info(f"**Summary:** {macro.analysis_summary}")
     else:
         st.warning("Macroeconomic analysis data not available")
@@ -873,43 +894,64 @@ def display_monetary_analysis(report: AnalysisReport):
             if mon.fed_funds_rate is not None:
                 st.write(f"**Fed Funds Rate:** {mon.fed_funds_rate*100:.2f}%")
             if mon.rate_direction:
-                dir_color = "red" if mon.rate_direction == "hiking" else "green" if mon.rate_direction == "cutting" else "gray"
+                dir_color = "red" if mon.rate_direction == "hawkish" else "green" if mon.rate_direction == "dovish" else "gray"
                 st.markdown(f"**Rate Direction:** :{dir_color}[{mon.rate_direction.upper()}]")
-            if mon.next_rate_move_probability is not None:
-                st.write(f"**Next Move Probability:** {mon.next_rate_move_probability*100:.0f}%")
+            if mon.rate_hike_probability is not None:
+                st.write(f"**Rate Hike Probability:** {mon.rate_hike_probability*100:.0f}%")
+            if mon.rate_cut_probability is not None:
+                st.write(f"**Rate Cut Probability:** {mon.rate_cut_probability*100:.0f}%")
 
             st.markdown("#### Yield Curve")
             if mon.yield_curve_status:
                 yc_color = "red" if mon.yield_curve_status == "inverted" else "green" if mon.yield_curve_status == "normal" else "orange"
                 st.markdown(f"**Yield Curve:** :{yc_color}[{mon.yield_curve_status.upper()}]")
-            if mon.yield_spread is not None:
-                st.write(f"**10Y-2Y Spread:** {mon.yield_spread*100:.2f}%")
+            if mon.yield_curve_spread is not None:
+                # Spread is in basis points, convert to percentage
+                spread_pct = mon.yield_curve_spread / 100
+                st.write(f"**10Y-2Y Spread:** {spread_pct:.2f}%")
             if mon.recession_probability is not None:
                 recession_color = "green" if mon.recession_probability < 0.3 else "orange" if mon.recession_probability < 0.6 else "red"
                 st.markdown(f"**Recession Probability:** :{recession_color}[{mon.recession_probability*100:.0f}%]")
 
         with col2:
-            st.markdown("#### Interest Rate Environment")
-            if mon.treasury_10y is not None:
-                st.write(f"**10Y Treasury:** {mon.treasury_10y*100:.2f}%")
+            st.markdown("#### Treasury Yields")
             if mon.treasury_2y is not None:
                 st.write(f"**2Y Treasury:** {mon.treasury_2y*100:.2f}%")
-            if mon.real_rate is not None:
-                st.write(f"**Real Rate:** {mon.real_rate*100:.2f}%")
+            if mon.treasury_5y is not None:
+                st.write(f"**5Y Treasury:** {mon.treasury_5y*100:.2f}%")
+            if mon.treasury_10y is not None:
+                st.write(f"**10Y Treasury:** {mon.treasury_10y*100:.2f}%")
+            if mon.treasury_30y is not None:
+                st.write(f"**30Y Treasury:** {mon.treasury_30y*100:.2f}%")
 
-            st.markdown("#### Sector Rate Sensitivity")
-            if mon.rate_sensitive_sectors:
-                for sector, sensitivity in mon.rate_sensitive_sectors.items():
-                    sens_color = "red" if sensitivity == "high" else "orange" if sensitivity == "medium" else "green"
-                    st.markdown(f"**{sector}:** :{sens_color}[{sensitivity.upper()}]")
+            st.markdown("#### Inflation")
+            if mon.cpi_current is not None:
+                st.write(f"**CPI (Headline):** {mon.cpi_current*100:.1f}%")
+            if mon.cpi_core is not None:
+                st.write(f"**CPI (Core):** {mon.cpi_core*100:.1f}%")
+            if mon.inflation_trend:
+                trend_color = "red" if mon.inflation_trend == "rising" else "green" if mon.inflation_trend == "falling" else "gray"
+                st.markdown(f"**Inflation Trend:** :{trend_color}[{mon.inflation_trend.upper()}]")
 
-        # Policy impact
-        if mon.policy_impact:
-            st.markdown("#### Policy Impact Assessment")
-            impact_color = "green" if mon.policy_impact == "positive" else "red" if mon.policy_impact == "negative" else "gray"
-            st.markdown(f"**Overall Impact:** :{impact_color}[{mon.policy_impact.upper()}]")
+        # Dollar and liquidity
+        col3, col4 = st.columns(2)
+        with col3:
+            if mon.dxy_index is not None or mon.dollar_trend:
+                st.markdown("#### US Dollar")
+                if mon.dxy_index is not None:
+                    st.write(f"**DXY Index:** {mon.dxy_index:.1f}")
+                if mon.dollar_trend:
+                    st.write(f"**Dollar Trend:** {mon.dollar_trend}")
+        with col4:
+            if mon.financial_conditions or mon.qt_pace:
+                st.markdown("#### Financial Conditions")
+                if mon.financial_conditions:
+                    cond_color = "red" if mon.financial_conditions == "tight" else "green" if mon.financial_conditions == "loose" else "gray"
+                    st.markdown(f"**Conditions:** :{cond_color}[{mon.financial_conditions.upper()}]")
+                if mon.qt_pace:
+                    st.write(f"**QT Pace:** {mon.qt_pace}")
 
-        if mon.analysis_summary:
+        if hasattr(mon, 'analysis_summary') and mon.analysis_summary:
             st.info(f"**Summary:** {mon.analysis_summary}")
     else:
         st.warning("Monetary policy analysis data not available")
