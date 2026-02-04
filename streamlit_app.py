@@ -892,7 +892,7 @@ def display_monetary_analysis(report: AnalysisReport):
         with col1:
             st.markdown("#### Federal Reserve Policy")
             if mon.fed_funds_rate is not None:
-                st.write(f"**Fed Funds Rate:** {mon.fed_funds_rate*100:.2f}%")
+                st.write(f"**Fed Funds Rate:** {mon.fed_funds_rate:.2f}%")
             if mon.rate_direction:
                 dir_color = "red" if mon.rate_direction == "hawkish" else "green" if mon.rate_direction == "dovish" else "gray"
                 st.markdown(f"**Rate Direction:** :{dir_color}[{mon.rate_direction.upper()}]")
@@ -916,21 +916,21 @@ def display_monetary_analysis(report: AnalysisReport):
         with col2:
             st.markdown("#### Treasury Yields")
             if mon.treasury_2y is not None:
-                st.write(f"**2Y Treasury:** {mon.treasury_2y*100:.2f}%")
+                st.write(f"**2Y Treasury:** {mon.treasury_2y:.2f}%")
             if mon.treasury_5y is not None:
-                st.write(f"**5Y Treasury:** {mon.treasury_5y*100:.2f}%")
+                st.write(f"**5Y Treasury:** {mon.treasury_5y:.2f}%")
             if mon.treasury_10y is not None:
-                st.write(f"**10Y Treasury:** {mon.treasury_10y*100:.2f}%")
+                st.write(f"**10Y Treasury:** {mon.treasury_10y:.2f}%")
             if mon.treasury_30y is not None:
-                st.write(f"**30Y Treasury:** {mon.treasury_30y*100:.2f}%")
+                st.write(f"**30Y Treasury:** {mon.treasury_30y:.2f}%")
 
             st.markdown("#### Inflation")
             if mon.cpi_current is not None:
-                st.write(f"**CPI (Headline):** {mon.cpi_current*100:.1f}%")
+                st.write(f"**CPI (Headline):** {mon.cpi_current:.1f}%")
             if mon.cpi_core is not None:
-                st.write(f"**CPI (Core):** {mon.cpi_core*100:.1f}%")
+                st.write(f"**CPI (Core):** {mon.cpi_core:.1f}%")
             if mon.inflation_trend:
-                trend_color = "red" if mon.inflation_trend == "rising" else "green" if mon.inflation_trend == "falling" else "gray"
+                trend_color = "red" if mon.inflation_trend in ["rising", "above_target"] else "green" if mon.inflation_trend == "falling" else "gray"
                 st.markdown(f"**Inflation Trend:** :{trend_color}[{mon.inflation_trend.upper()}]")
 
         # Dollar and liquidity
