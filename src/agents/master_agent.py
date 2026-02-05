@@ -4,8 +4,9 @@ import asyncio
 import time
 from typing import Any, Optional
 
-import yfinance as yf
 from loguru import logger
+
+from src.utils.yfinance_cache import get_ticker_info, get_ticker_history
 
 from src.agents.base_agent import BaseAgent
 from src.agents.fundamental_agent import FundamentalAnalysisAgent
@@ -235,10 +236,9 @@ class MasterAgent:
         return report
 
     async def _fetch_stock_data(self, symbol: str) -> StockData:
-        """Fetch basic stock data."""
+        """Fetch basic stock data with caching."""
         try:
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
+            info = get_ticker_info(symbol)
 
             return StockData(
                 symbol=symbol,

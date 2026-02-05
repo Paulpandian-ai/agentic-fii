@@ -2,11 +2,11 @@
 
 from typing import Any, Optional
 
-import yfinance as yf
 from loguru import logger
 
 from src.agents.base_agent import BaseAgent
 from src.models.schemas import CompetitorInfo, CompetitiveAnalysis
+from src.utils.yfinance_cache import get_ticker_info, get_ticker_history
 
 
 # Industry peer groups
@@ -51,9 +51,8 @@ class CompetitiveAnalysisAgent(BaseAgent):
         self.log_info(f"Analyzing competitive landscape for {symbol}")
 
         try:
-            # Get company info
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
+            # Get company info with caching
+            info = get_ticker_info(symbol)
             industry = info.get("industry", "")
             sector = info.get("sector", "")
 
@@ -61,7 +60,7 @@ class CompetitiveAnalysisAgent(BaseAgent):
             competitors = await self._identify_competitors(symbol, industry, sector)
 
             # Get company metrics for comparison
-            company_metrics = self._extract_company_metrics(info, ticker)
+            company_metrics = self._extract_company_metrics(info, symbol)
 
             # Analyze each competitor
             analyzed_competitors = []
@@ -128,14 +127,14 @@ class CompetitiveAnalysisAgent(BaseAgent):
 
         return sector_peers.get(sector, [])[:8]
 
-    def _extract_company_metrics(self, info: dict, ticker) -> dict:
+    def _extract_company_metrics(self, info: dict, symbol: str) -> dict:
         """Extract key metrics for the target company."""
-        hist = ticker.history(period="1mo")
+        hist = get_ticker_history(symbol, period="1mo")
         perf_1m = None
         if len(hist) > 1:
             perf_1m = (hist['Close'].iloc[-1] - hist['Close'].iloc[0]) / hist['Close'].iloc[0]
 
-        hist_ytd = ticker.history(period="ytd")
+        hist_ytd = get_ticker_history(symbol, period="ytd")
         perf_ytd = None
         if len(hist_ytd) > 1:
             perf_ytd = (hist_ytd['Close'].iloc[-1] - hist_ytd['Close'].iloc[0]) / hist_ytd['Close'].iloc[0]
@@ -154,16 +153,15 @@ class CompetitiveAnalysisAgent(BaseAgent):
     async def _analyze_competitor(self, symbol: str) -> Optional[CompetitorInfo]:
         """Analyze a single competitor."""
         try:
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
+            info = get_ticker_info(symbol)
 
-            # Get performance data
-            hist_1m = ticker.history(period="1mo")
+            # Get performance data with caching
+            hist_1m = get_ticker_history(symbol, period="1mo")
             perf_1m = None
             if len(hist_1m) > 1:
                 perf_1m = (hist_1m['Close'].iloc[-1] - hist_1m['Close'].iloc[0]) / hist_1m['Close'].iloc[0]
 
-            hist_ytd = ticker.history(period="ytd")
+            hist_ytd = get_ticker_history(symbol, period="ytd")
             perf_ytd = None
             if len(hist_ytd) > 1:
                 perf_ytd = (hist_ytd['Close'].iloc[-1] - hist_ytd['Close'].iloc[0]) / hist_ytd['Close'].iloc[0]

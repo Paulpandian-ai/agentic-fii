@@ -2,11 +2,11 @@
 
 from typing import Any, Optional
 
-import yfinance as yf
 from loguru import logger
 
 from src.agents.base_agent import BaseAgent
 from src.models.schemas import SentimentData
+from src.utils.yfinance_cache import get_ticker_info, get_ticker_news, get_ticker_recommendations
 
 
 class SentimentAnalysisAgent(BaseAgent):
@@ -36,13 +36,11 @@ class SentimentAnalysisAgent(BaseAgent):
         self.log_info(f"Analyzing sentiment for {symbol}")
 
         try:
-            ticker = yf.Ticker(symbol)
-
             # Gather sentiment data from multiple sources
             sentiment_data = SentimentData(symbol=symbol)
 
-            # Get news sentiment
-            news_result = self._analyze_news(ticker)
+            # Get news sentiment with caching
+            news_result = self._analyze_news(symbol)
             sentiment_data.news_sentiment = news_result["sentiment"]
             sentiment_data.news_count = news_result["count"]
             sentiment_data.positive_news_count = news_result["positive"]
@@ -50,8 +48,8 @@ class SentimentAnalysisAgent(BaseAgent):
             sentiment_data.neutral_news_count = news_result["neutral"]
             sentiment_data.key_headlines = news_result["headlines"]
 
-            # Get analyst recommendations
-            analyst_result = self._analyze_recommendations(ticker)
+            # Get analyst recommendations with caching
+            analyst_result = self._analyze_recommendations(symbol)
             sentiment_data.analyst_rating = analyst_result["rating"]
             sentiment_data.buy_ratings = analyst_result["buy"]
             sentiment_data.hold_ratings = analyst_result["hold"]
@@ -83,10 +81,10 @@ class SentimentAnalysisAgent(BaseAgent):
                 "summary": f"Unable to perform sentiment analysis: {str(e)}",
             }
 
-    def _analyze_news(self, ticker) -> dict[str, Any]:
+    def _analyze_news(self, symbol: str) -> dict[str, Any]:
         """Analyze news articles for sentiment."""
         try:
-            news = ticker.news
+            news = get_ticker_news(symbol)
             if not news:
                 return {
                     "sentiment": None,
@@ -155,10 +153,10 @@ class SentimentAnalysisAgent(BaseAgent):
                 "headlines": [],
             }
 
-    def _analyze_recommendations(self, ticker) -> dict[str, Any]:
+    def _analyze_recommendations(self, symbol: str) -> dict[str, Any]:
         """Analyze analyst recommendations."""
         try:
-            info = ticker.info
+            info = get_ticker_info(symbol)
 
             # Get analyst recommendations
             buy = info.get("numberOfAnalystOpinions", 0) if info.get("recommendationKey") in ["buy", "strongBuy"] else 0
@@ -167,7 +165,7 @@ class SentimentAnalysisAgent(BaseAgent):
 
             # Try to get more detailed recommendations
             try:
-                recommendations = ticker.recommendations
+                recommendations = get_ticker_recommendations(symbol)
                 if recommendations is not None and len(recommendations) > 0:
                     recent = recommendations.tail(30)  # Last 30 recommendations
                     if "To Grade" in recent.columns:

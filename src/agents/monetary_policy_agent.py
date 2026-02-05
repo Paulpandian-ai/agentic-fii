@@ -2,12 +2,12 @@
 
 from typing import Any, Optional
 
-import yfinance as yf
 import numpy as np
 from loguru import logger
 
 from src.agents.base_agent import BaseAgent
 from src.models.schemas import MonetaryPolicyData
+from src.utils.yfinance_cache import get_ticker_info, get_ticker_history
 
 
 # Sector rate sensitivity
@@ -55,9 +55,8 @@ class MonetaryPolicyAgent(BaseAgent):
         self.log_info(f"Analyzing monetary policy impact for {symbol}")
 
         try:
-            # Get company info for sector-specific analysis
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
+            # Get company info for sector-specific analysis with caching
+            info = get_ticker_info(symbol)
             sector = info.get("sector", "")
 
             # Fetch monetary policy data
@@ -103,17 +102,11 @@ class MonetaryPolicyAgent(BaseAgent):
         policy = MonetaryPolicyData()
 
         try:
-            # Treasury yields from ETFs as proxies
+            # Treasury yields from ETFs as proxies with caching
             # TLT = 20+ year, IEF = 7-10 year, SHY = 1-3 year
-            tlt = yf.Ticker("TLT")
-            ief = yf.Ticker("IEF")
-            shy = yf.Ticker("SHY")
-
-            # Get yield estimates from ETF prices and durations
-            # These are approximations based on ETF behavior
-            shy_hist = shy.history(period="1mo")
-            ief_hist = ief.history(period="1mo")
-            tlt_hist = tlt.history(period="1mo")
+            shy_hist = get_ticker_history("SHY", period="1mo")
+            ief_hist = get_ticker_history("IEF", period="1mo")
+            tlt_hist = get_ticker_history("TLT", period="1mo")
 
             # Use current Fed Funds rate estimate
             policy.fed_funds_rate = 5.25  # Current approximate rate
@@ -155,8 +148,7 @@ class MonetaryPolicyAgent(BaseAgent):
                     policy.recession_probability = 0.10
 
             # Inflation estimates from TIPS ETF (TIP vs nominal)
-            tip = yf.Ticker("TIP")
-            tip_hist = tip.history(period="3mo")
+            tip_hist = get_ticker_history("TIP", period="3mo")
             if len(tip_hist) > 0 and len(ief_hist) > 0:
                 tip_return = tip_hist['Close'].iloc[-1] / tip_hist['Close'].iloc[0] - 1
                 ief_return = ief_hist['Close'].iloc[-1] / ief_hist['Close'].iloc[0] - 1
@@ -182,9 +174,8 @@ class MonetaryPolicyAgent(BaseAgent):
                 else:
                     policy.inflation_trend = "below_target"
 
-            # Dollar index from UUP ETF
-            uup = yf.Ticker("UUP")
-            uup_hist = uup.history(period="3mo")
+            # Dollar index from UUP ETF with caching
+            uup_hist = get_ticker_history("UUP", period="3mo")
             if len(uup_hist) > 0:
                 uup_return = uup_hist['Close'].iloc[-1] / uup_hist['Close'].iloc[0] - 1
                 policy.dxy_index = 104 + uup_return * 100  # Rough approximation

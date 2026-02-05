@@ -2,11 +2,11 @@
 
 from typing import Any, Optional
 
-import yfinance as yf
 from loguru import logger
 
 from src.agents.base_agent import BaseAgent
 from src.models.schemas import CustomerInfo, CustomerAnalysis
+from src.utils.yfinance_cache import get_ticker_info, get_ticker_history
 
 
 # Known major customers for select companies
@@ -68,9 +68,8 @@ class CustomerAnalysisAgent(BaseAgent):
         self.log_info(f"Analyzing customer base for {symbol}")
 
         try:
-            # Get company info
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
+            # Get company info with caching
+            info = get_ticker_info(symbol)
             sector = info.get("sector", "")
             industry = info.get("industry", "")
 
@@ -170,9 +169,8 @@ class CustomerAnalysisAgent(BaseAgent):
             )
 
         try:
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
-            hist = ticker.history(period="ytd")
+            info = get_ticker_info(symbol)
+            hist = get_ticker_history(symbol, period="ytd")
 
             # Calculate YTD performance
             ytd_performance = None

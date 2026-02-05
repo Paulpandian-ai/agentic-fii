@@ -4,11 +4,11 @@ from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
 from loguru import logger
 
 from src.agents.base_agent import BaseAgent
 from src.models.schemas import TechnicalIndicators
+from src.utils.yfinance_cache import get_ticker_history
 
 
 class TechnicalAnalysisAgent(BaseAgent):
@@ -47,9 +47,8 @@ class TechnicalAnalysisAgent(BaseAgent):
         self.log_info(f"Fetching price data for {symbol}")
 
         try:
-            # Fetch historical data
-            ticker = yf.Ticker(symbol)
-            df = ticker.history(period=f"{self.lookback_period}d")
+            # Fetch historical data with caching
+            df = get_ticker_history(symbol, period=f"{self.lookback_period}d")
 
             if df.empty:
                 raise ValueError(f"No price data available for {symbol}")

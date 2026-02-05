@@ -2,11 +2,11 @@
 
 from typing import Any, Optional
 
-import yfinance as yf
 from loguru import logger
 
 from src.agents.base_agent import BaseAgent
 from src.models.schemas import FundamentalMetrics
+from src.utils.yfinance_cache import get_ticker_info
 
 
 class FundamentalAnalysisAgent(BaseAgent):
@@ -37,8 +37,7 @@ class FundamentalAnalysisAgent(BaseAgent):
         self.log_info(f"Fetching fundamental data for {symbol}")
 
         try:
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
+            info = get_ticker_info(symbol)
 
             # Extract fundamental metrics
             metrics = self._extract_metrics(symbol, info)

@@ -3,10 +3,10 @@
 from typing import Any, Optional
 import numpy as np
 import pandas as pd
-import yfinance as yf
 from loguru import logger
 
 from src.agents.base_agent import BaseAgent
+from src.utils.yfinance_cache import get_ticker_info, get_ticker_history
 
 
 class PortfolioOptimizerAgent(BaseAgent):
@@ -136,33 +136,25 @@ class PortfolioOptimizerAgent(BaseAgent):
             # Calculate daily returns
             returns = close_prices.pct_change().dropna()
 
-            # Get current prices
+            # Get current prices and info with caching
             current_prices = {}
+            stock_info = {}
             for symbol in symbols:
                 try:
-                    ticker = yf.Ticker(symbol)
-                    info = ticker.info
+                    info = get_ticker_info(symbol)
                     price = info.get("currentPrice") or info.get("regularMarketPrice")
                     if price:
                         current_prices[symbol] = price
                     elif symbol in close_prices.columns:
                         current_prices[symbol] = close_prices[symbol].iloc[-1]
-                except:
-                    if symbol in close_prices.columns:
-                        current_prices[symbol] = close_prices[symbol].iloc[-1]
-
-            # Get additional info (sector, name)
-            stock_info = {}
-            for symbol in symbols:
-                try:
-                    ticker = yf.Ticker(symbol)
-                    info = ticker.info
                     stock_info[symbol] = {
                         "name": info.get("shortName", symbol),
                         "sector": info.get("sector", "Unknown"),
                         "industry": info.get("industry", "Unknown"),
                     }
                 except:
+                    if symbol in close_prices.columns:
+                        current_prices[symbol] = close_prices[symbol].iloc[-1]
                     stock_info[symbol] = {
                         "name": symbol,
                         "sector": "Unknown",

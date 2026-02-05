@@ -2,11 +2,11 @@
 
 from typing import Any, Optional
 
-import yfinance as yf
 from loguru import logger
 
 from src.agents.base_agent import BaseAgent
 from src.models.schemas import MacroeconomicData
+from src.utils.yfinance_cache import get_ticker_info, get_ticker_history
 
 
 # Sector sensitivity to economic factors
@@ -110,9 +110,8 @@ class MacroeconomicAgent(BaseAgent):
         self.log_info(f"Analyzing macroeconomic conditions for {symbol}")
 
         try:
-            # Get company info for sector-specific analysis
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
+            # Get company info for sector-specific analysis with caching
+            info = get_ticker_info(symbol)
             sector = info.get("sector", "")
 
             # Fetch macroeconomic data
@@ -157,9 +156,8 @@ class MacroeconomicAgent(BaseAgent):
             # Use market ETFs as proxies for macro conditions
             # SPY for overall market, XLF for financials (rate sensitivity), etc.
 
-            # Get market data as economic proxy
-            spy = yf.Ticker("SPY")
-            spy_hist = spy.history(period="1y")
+            # Get market data as economic proxy with caching
+            spy_hist = get_ticker_history("SPY", period="1y")
 
             if len(spy_hist) > 200:
                 # Calculate trend (proxy for GDP growth expectation)
@@ -171,17 +169,12 @@ class MacroeconomicAgent(BaseAgent):
                 else:
                     macro.gdp_trend = "decelerating"
 
-            # Get Treasury yields for rate environment
-            tlt = yf.Ticker("TLT")  # Long-term treasury ETF
-            ief = yf.Ticker("IEF")  # Intermediate treasury ETF
-            shy = yf.Ticker("SHY")  # Short-term treasury ETF
+            # Get Treasury yields for rate environment (using cached history)
+            # Note: Using ETFs as proxies since direct yield data needs alternative sources
 
             # Consumer discretionary vs staples as consumer confidence proxy
-            xly = yf.Ticker("XLY")  # Consumer Discretionary
-            xlp = yf.Ticker("XLP")  # Consumer Staples
-
-            xly_hist = xly.history(period="3mo")
-            xlp_hist = xlp.history(period="3mo")
+            xly_hist = get_ticker_history("XLY", period="3mo")  # Consumer Discretionary
+            xlp_hist = get_ticker_history("XLP", period="3mo")  # Consumer Staples
 
             if len(xly_hist) > 20 and len(xlp_hist) > 20:
                 xly_return = xly_hist['Close'].iloc[-1] / xly_hist['Close'].iloc[0] - 1
@@ -196,8 +189,7 @@ class MacroeconomicAgent(BaseAgent):
                     macro.consumer_confidence = 100  # Neutral
 
             # Industrial production proxy via XLI
-            xli = yf.Ticker("XLI")
-            xli_hist = xli.history(period="3mo")
+            xli_hist = get_ticker_history("XLI", period="3mo")
             if len(xli_hist) > 20:
                 xli_return = xli_hist['Close'].iloc[-1] / xli_hist['Close'].iloc[0] - 1
                 macro.industrial_production = xli_return
@@ -214,8 +206,7 @@ class MacroeconomicAgent(BaseAgent):
                     macro.pmi_manufacturing = 45  # Contraction
 
             # Housing market proxy via XHB
-            xhb = yf.Ticker("XHB")
-            xhb_hist = xhb.history(period="3mo")
+            xhb_hist = get_ticker_history("XHB", period="3mo")
             if len(xhb_hist) > 20:
                 xhb_return = xhb_hist['Close'].iloc[-1] / xhb_hist['Close'].iloc[0] - 1
                 macro.home_price_growth = xhb_return
@@ -229,8 +220,7 @@ class MacroeconomicAgent(BaseAgent):
                     macro.employment_trend = "weakening"
 
             # Emerging markets proxy via EEM
-            eem = yf.Ticker("EEM")
-            eem_hist = eem.history(period="3mo")
+            eem_hist = get_ticker_history("EEM", period="3mo")
             if len(eem_hist) > 20:
                 eem_return = eem_hist['Close'].iloc[-1] / eem_hist['Close'].iloc[0] - 1
                 if eem_return > 0.05:

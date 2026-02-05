@@ -4,11 +4,11 @@ from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
 from loguru import logger
 
 from src.agents.base_agent import BaseAgent
 from src.models.schemas import RiskMetrics
+from src.utils.yfinance_cache import get_ticker_info, get_ticker_history
 
 
 class RiskAssessmentAgent(BaseAgent):
@@ -49,16 +49,14 @@ class RiskAssessmentAgent(BaseAgent):
         self.log_info(f"Assessing risk for {symbol}")
 
         try:
-            # Fetch historical data
-            ticker = yf.Ticker(symbol)
-            df = ticker.history(period="1y")
+            # Fetch historical data with caching
+            df = get_ticker_history(symbol, period="1y")
 
             if df.empty or len(df) < 30:
                 raise ValueError(f"Insufficient price data for {symbol}")
 
-            # Fetch market benchmark (S&P 500)
-            market = yf.Ticker("SPY")
-            market_df = market.history(period="1y")
+            # Fetch market benchmark (S&P 500) with caching
+            market_df = get_ticker_history("SPY", period="1y")
 
             # Calculate risk metrics
             metrics = self._calculate_metrics(symbol, df, market_df)
