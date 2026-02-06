@@ -17,7 +17,6 @@ import numpy as np
 from src.utils.yfinance_cache import (
     get_ticker_info,
     get_ticker_history,
-    batch_download,
 )
 
 
