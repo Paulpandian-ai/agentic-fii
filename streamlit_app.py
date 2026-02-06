@@ -1953,7 +1953,7 @@ def display_stock_screener_page():
             st.subheader("Top Stock Recommendations")
             top_stocks = screener.get_top_recommendations(n=20)
             if top_stocks:
-                display_screener_results_table(top_stocks)
+                display_screener_results_table(top_stocks, tab_name="top_recommendations")
             else:
                 st.info("No stocks met the criteria for a buy recommendation.")
 
@@ -1962,7 +1962,7 @@ def display_stock_screener_page():
             value_stocks = screener.get_value_stocks(min_score=50)
             value_stocks = sorted(value_stocks, key=lambda x: x.value_score, reverse=True)[:30]
             if value_stocks:
-                display_screener_results_table(value_stocks, show_value_metrics=True)
+                display_screener_results_table(value_stocks, show_value_metrics=True, tab_name="value_stocks")
             else:
                 st.info("No value stocks found with the current criteria.")
 
@@ -1971,7 +1971,7 @@ def display_stock_screener_page():
             growth_stocks = screener.get_growth_stocks(min_score=50)
             growth_stocks = sorted(growth_stocks, key=lambda x: x.growth_score, reverse=True)[:30]
             if growth_stocks:
-                display_screener_results_table(growth_stocks, show_growth_metrics=True)
+                display_screener_results_table(growth_stocks, show_growth_metrics=True, tab_name="growth_stocks")
             else:
                 st.info("No growth stocks found with the current criteria.")
 
@@ -1980,14 +1980,14 @@ def display_stock_screener_page():
             dividend_stocks = screener.get_dividend_stocks(min_yield=0.02)
             dividend_stocks = sorted(dividend_stocks, key=lambda x: x.dividend_yield or 0, reverse=True)[:30]
             if dividend_stocks:
-                display_screener_results_table(dividend_stocks, show_dividend_metrics=True)
+                display_screener_results_table(dividend_stocks, show_dividend_metrics=True, tab_name="dividend_stocks")
             else:
                 st.info("No dividend stocks found with the current criteria.")
 
         with tab5:
             st.subheader("All Screened Stocks")
             all_results = sorted(results, key=lambda x: x.overall_score, reverse=True)
-            display_screener_results_table(all_results)
+            display_screener_results_table(all_results, tab_name="all_results")
 
         # Sector breakdown chart
         st.markdown("---")
@@ -2112,7 +2112,8 @@ def display_screener_results_table(
     stocks: list[ScreenedStock],
     show_value_metrics: bool = False,
     show_growth_metrics: bool = False,
-    show_dividend_metrics: bool = False
+    show_dividend_metrics: bool = False,
+    tab_name: str = "default"
 ):
     """Display screener results in a formatted table."""
     if not stocks:
@@ -2177,7 +2178,7 @@ def display_screener_results_table(
     selected_symbol = st.selectbox(
         "Select a stock for detailed analysis",
         [s.symbol for s in stocks],
-        key=f"detail_select_{show_value_metrics}_{show_growth_metrics}_{show_dividend_metrics}"
+        key=f"detail_select_{tab_name}"
     )
 
     if selected_symbol:
