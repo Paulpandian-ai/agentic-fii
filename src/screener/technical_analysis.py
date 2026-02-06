@@ -437,12 +437,12 @@ class TechnicalAnalyzer:
         # Relative volume
         rel_vol = volume[-1] / vol_sma_20 if vol_sma_20 > 0 else 1
 
-        # Accumulation/Distribution
+        # Accumulation/Distribution (simplified using price change * volume)
         ad = 0
-        for i in range(len(close)):
-            if high := close[i]:  # Simplified, using close as proxy
-                money_flow_mult = ((close[i] - low) - (high - close[i])) / (high - low) if high != low else 0
-                ad += money_flow_mult * volume[i]
+        for i in range(1, len(close)):
+            price_change = close[i] - close[i-1]
+            if close[i-1] != 0:
+                ad += (price_change / close[i-1]) * volume[i]
 
         return VolumeIndicators(
             obv=obv,
