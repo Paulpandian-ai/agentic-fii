@@ -17,6 +17,12 @@ from .stock_universe import (
     get_all_sectors,
     SECTOR_ETFS,
 )
+from .watchlist_manager import (
+    WatchlistManager,
+    Watchlist,
+    WatchlistStock,
+    get_watchlist_manager,
+)
 
 __all__ = [
     "StockScreener",
@@ -32,4 +38,8 @@ __all__ = [
     "get_dividend_aristocrats",
     "get_all_sectors",
     "SECTOR_ETFS",
+    "WatchlistManager",
+    "Watchlist",
+    "WatchlistStock",
+    "get_watchlist_manager",
 ]

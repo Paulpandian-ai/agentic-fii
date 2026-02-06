@@ -33,7 +33,10 @@ from src.screener import (
     get_all_major_stocks,
     get_dividend_aristocrats,
     get_all_sectors,
+    get_watchlist_manager,
+    WatchlistStock,
 )
+from src.utils.yfinance_cache import get_ticker_info
 
 
 # Page configuration
@@ -1794,6 +1797,162 @@ def display_stock_analysis_page():
                     st.rerun()
 
 
+def display_watchlist_management(screener_results: list = None):
+    """Display watchlist management interface."""
+    wm = st.session_state.get('watchlist_manager') or get_watchlist_manager()
+    st.session_state.watchlist_manager = wm
+
+    st.subheader("⭐ Watchlist Manager")
+
+    # Create new watchlist section
+    with st.expander("➕ Create New Watchlist", expanded=False):
+        col1, col2 = st.columns([2, 3])
+        with col1:
+            new_wl_name = st.text_input("Watchlist Name", key="new_watchlist_name")
+        with col2:
+            new_wl_desc = st.text_input("Description (optional)", key="new_watchlist_desc")
+
+        if st.button("Create Watchlist", type="primary", key="create_watchlist_btn"):
+            if new_wl_name:
+                if wm.create_watchlist(new_wl_name, new_wl_desc):
+                    st.success(f"Created watchlist: {new_wl_name}")
+                    st.rerun()
+                else:
+                    st.error(f"Watchlist '{new_wl_name}' already exists")
+            else:
+                st.warning("Please enter a watchlist name")
+
+    st.markdown("---")
+
+    # Display existing watchlists
+    watchlists = wm.get_all_watchlists()
+
+    if not watchlists:
+        st.info("No watchlists yet. Create one above to get started!")
+        return
+
+    # Watchlist selector
+    wl_names = wm.get_watchlist_names()
+    selected_wl_name = st.selectbox(
+        "Select Watchlist",
+        wl_names,
+        key="selected_watchlist"
+    )
+
+    if selected_wl_name:
+        wl = wm.get_watchlist(selected_wl_name)
+        if wl:
+            # Watchlist info
+            col1, col2, col3 = st.columns([3, 2, 1])
+            with col1:
+                st.markdown(f"**{wl.name}**")
+                if wl.description:
+                    st.caption(wl.description)
+            with col2:
+                st.caption(f"Created: {wl.created_date}")
+            with col3:
+                if st.button("🗑️ Delete", key=f"delete_wl_{wl.name}"):
+                    wm.delete_watchlist(wl.name)
+                    st.success(f"Deleted watchlist: {wl.name}")
+                    st.rerun()
+
+            st.markdown("---")
+
+            # Add stock from screener results
+            if screener_results:
+                with st.expander("➕ Add Stock from Screener Results", expanded=False):
+                    available_symbols = [s.symbol for s in screener_results]
+                    selected_to_add = st.multiselect(
+                        "Select stocks to add",
+                        available_symbols,
+                        key=f"add_stocks_{wl.name}"
+                    )
+                    if st.button("Add Selected Stocks", key=f"add_btn_{wl.name}"):
+                        added_count = 0
+                        for sym in selected_to_add:
+                            stock_data = next((s for s in screener_results if s.symbol == sym), None)
+                            if stock_data:
+                                if wm.add_stock_to_watchlist(
+                                    wl.name, sym,
+                                    name=stock_data.name,
+                                    price=stock_data.current_price,
+                                    category=stock_data.category.value
+                                ):
+                                    added_count += 1
+                        if added_count > 0:
+                            st.success(f"Added {added_count} stocks to {wl.name}")
+                            st.rerun()
+                        else:
+                            st.warning("Stocks already in watchlist or error occurred")
+
+            # Add stock manually
+            with st.expander("➕ Add Stock Manually", expanded=False):
+                manual_col1, manual_col2 = st.columns(2)
+                with manual_col1:
+                    manual_symbol = st.text_input("Stock Symbol", key=f"manual_sym_{wl.name}").upper()
+                with manual_col2:
+                    manual_notes = st.text_input("Notes (optional)", key=f"manual_notes_{wl.name}")
+
+                if st.button("Add Stock", key=f"manual_add_{wl.name}"):
+                    if manual_symbol:
+                        # Try to get stock info
+                        try:
+                            info = get_ticker_info(manual_symbol)
+                            name = info.get('shortName', '') if info else ''
+                            price = info.get('currentPrice') or info.get('regularMarketPrice') if info else None
+                        except:
+                            name = ''
+                            price = None
+
+                        if wm.add_stock_to_watchlist(
+                            wl.name, manual_symbol,
+                            name=name,
+                            price=price,
+                            notes=manual_notes
+                        ):
+                            st.success(f"Added {manual_symbol} to {wl.name}")
+                            st.rerun()
+                        else:
+                            st.warning(f"{manual_symbol} already in watchlist")
+                    else:
+                        st.warning("Please enter a stock symbol")
+
+            # Display stocks in watchlist
+            if wl.stocks:
+                st.markdown("##### 📊 Stocks in Watchlist")
+
+                stock_data = []
+                for stock in wl.stocks:
+                    row = {
+                        'Symbol': stock.symbol,
+                        'Name': stock.name[:30] + '...' if len(stock.name) > 30 else stock.name,
+                        'Added Date': stock.added_date,
+                        'Added Price': f"${stock.added_price:.2f}" if stock.added_price else "N/A",
+                        'Category': stock.category.title() if stock.category else "—",
+                        'Notes': stock.notes[:20] + '...' if len(stock.notes) > 20 else stock.notes,
+                    }
+                    stock_data.append(row)
+
+                stock_df = pd.DataFrame(stock_data)
+                st.dataframe(stock_df, hide_index=True, use_container_width=True)
+
+                # Remove stock section
+                st.markdown("##### Remove Stocks")
+                stocks_to_remove = st.multiselect(
+                    "Select stocks to remove",
+                    [s.symbol for s in wl.stocks],
+                    key=f"remove_stocks_{wl.name}"
+                )
+                if st.button("Remove Selected", type="secondary", key=f"remove_btn_{wl.name}"):
+                    for sym in stocks_to_remove:
+                        wm.remove_stock_from_watchlist(wl.name, sym)
+                    if stocks_to_remove:
+                        st.success(f"Removed {len(stocks_to_remove)} stocks")
+                        st.rerun()
+            else:
+                st.info("No stocks in this watchlist yet. Add some using the options above!")
+
+
 def display_stock_screener_page():
     """Display the stock screener page for finding value and growth stocks."""
     st.markdown('<h1 class="main-header">🔍 Stock Screener</h1>', unsafe_allow_html=True)
@@ -1805,6 +1964,10 @@ def display_stock_screener_page():
         st.session_state.screener_results = None
     if 'screening_complete' not in st.session_state:
         st.session_state.screening_complete = False
+    if 'watchlist_manager' not in st.session_state:
+        st.session_state.watchlist_manager = get_watchlist_manager()
+    if 'show_watchlist_tab' not in st.session_state:
+        st.session_state.show_watchlist_tab = False
 
     # Sidebar configuration
     with st.sidebar:
@@ -1941,12 +2104,13 @@ def display_stock_screener_page():
         st.markdown("---")
 
         # Tabs for different views
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
             "🏆 Top Recommendations",
             "💰 Value Stocks",
             "📈 Growth Stocks",
             "💵 Dividend Stocks",
-            "📋 All Results"
+            "📋 All Results",
+            "⭐ My Watchlists"
         ])
 
         with tab1:
@@ -1988,6 +2152,9 @@ def display_stock_screener_page():
             st.subheader("All Screened Stocks")
             all_results = sorted(results, key=lambda x: x.overall_score, reverse=True)
             display_screener_results_table(all_results, tab_name="all_results")
+
+        with tab6:
+            display_watchlist_management(results)
 
         # Sector breakdown chart
         st.markdown("---")
@@ -2072,40 +2239,47 @@ def display_stock_screener_page():
         )
 
     else:
-        # Show instructions when no results
-        st.markdown("""
-        ### How to Use the Stock Screener
+        # Show instructions and watchlist management when no results
+        instructions_tab, watchlist_tab = st.tabs(["📖 Getting Started", "⭐ My Watchlists"])
 
-        1. **Select a Stock Universe** - Choose from S&P 500, NASDAQ 100, Dow 30, or scan all major stocks
-        2. **Set Screening Criteria** - Adjust value, growth, and quality filters in the sidebar
-        3. **Run the Screener** - Click "Run Screener" to analyze stocks
-        4. **Review Results** - Explore recommendations by category (Value, Growth, Dividend)
-        5. **Export** - Download results as CSV for further analysis
+        with instructions_tab:
+            st.markdown("""
+            ### How to Use the Stock Screener
 
-        ---
+            1. **Select a Stock Universe** - Choose from S&P 500, NASDAQ 100, Dow 30, or scan all major stocks
+            2. **Set Screening Criteria** - Adjust value, growth, and quality filters in the sidebar
+            3. **Run the Screener** - Click "Run Screener" to analyze stocks
+            4. **Review Results** - Explore recommendations by category (Value, Growth, Dividend)
+            5. **Add to Watchlist** - Save interesting stocks to your watchlists
+            6. **Export** - Download results as CSV for further analysis
 
-        ### Stock Categories
+            ---
 
-        | Category | Description |
-        |----------|-------------|
-        | **Value** | Low P/E, P/B ratios - undervalued relative to fundamentals |
-        | **Growth** | High revenue and earnings growth rates |
-        | **Dividend** | Solid dividend yield with sustainable payout |
-        | **Quality** | Strong profitability and returns |
-        | **Momentum** | Positive price trends |
+            ### Stock Categories
 
-        ---
+            | Category | Description |
+            |----------|-------------|
+            | **Value** | Low P/E, P/B ratios - undervalued relative to fundamentals |
+            | **Growth** | High revenue and earnings growth rates |
+            | **Dividend** | Solid dividend yield with sustainable payout |
+            | **Quality** | Strong profitability and returns |
+            | **Momentum** | Positive price trends |
 
-        ### Scoring System
+            ---
 
-        Each stock receives scores (0-100) for:
-        - **Value Score** - Based on P/E, P/B, P/S, PEG ratios
-        - **Growth Score** - Based on revenue, earnings, EPS growth
-        - **Quality Score** - Based on margins, ROE, ROA
-        - **Momentum Score** - Based on 1M, 3M, YTD, 1Y performance
+            ### Scoring System
 
-        The **Overall Score** is a weighted average used for recommendations.
-        """)
+            Each stock receives scores (0-100) for:
+            - **Value Score** - Based on P/E, P/B, P/S, PEG ratios
+            - **Growth Score** - Based on revenue, earnings, EPS growth
+            - **Quality Score** - Based on margins, ROE, ROA
+            - **Momentum Score** - Based on 1M, 3M, YTD, 1Y performance
+
+            The **Overall Score** is a weighted average used for recommendations.
+            """)
+
+        with watchlist_tab:
+            display_watchlist_management()
 
 
 def display_screener_results_table(
@@ -2215,6 +2389,33 @@ def display_screener_results_table(
             # Analysis summary
             if selected_stock.analysis_summary:
                 st.info(f"**Analysis:** {selected_stock.analysis_summary}")
+
+            # Add to Watchlist button
+            wm = st.session_state.get('watchlist_manager') or get_watchlist_manager()
+            watchlist_names = wm.get_watchlist_names()
+            if watchlist_names:
+                add_col1, add_col2 = st.columns([2, 1])
+                with add_col1:
+                    target_watchlist = st.selectbox(
+                        "Add to Watchlist",
+                        watchlist_names,
+                        key=f"add_wl_select_{tab_name}"
+                    )
+                with add_col2:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button("⭐ Add", key=f"add_wl_btn_{tab_name}"):
+                        if wm.add_stock_to_watchlist(
+                            target_watchlist,
+                            selected_stock.symbol,
+                            name=selected_stock.name,
+                            price=selected_stock.current_price,
+                            category=selected_stock.category.value
+                        ):
+                            st.success(f"Added {selected_stock.symbol} to {target_watchlist}")
+                        else:
+                            st.warning(f"{selected_stock.symbol} already in {target_watchlist}")
+            else:
+                st.caption("💡 Create a watchlist in the 'My Watchlists' tab to save stocks")
 
 
 def main():
