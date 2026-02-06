@@ -35,8 +35,20 @@ from src.screener import (
     get_all_sectors,
     get_watchlist_manager,
     WatchlistStock,
+    # Portfolio Analytics
+    get_portfolio_analytics,
+    # Technical Analysis
+    get_technical_analyzer,
+    TrendDirection,
+    SignalType,
+    # Peer Comparison
+    get_peer_analyzer,
+    # Events Calendar
+    get_events_calendar,
+    # Institutional Tracking
+    get_institutional_tracker,
 )
-from src.utils.yfinance_cache import get_ticker_info
+from src.utils.yfinance_cache import get_ticker_info, get_ticker_history
 
 
 # Page configuration
@@ -2418,6 +2430,657 @@ def display_screener_results_table(
                 st.caption("💡 Create a watchlist in the 'My Watchlists' tab to save stocks")
 
 
+def display_asset_manager_tools_page():
+    """Display the Asset Manager Tools page with advanced analytics."""
+    st.markdown('<h1 class="main-header">🛠️ Asset Manager Tools</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; color: gray;">Professional-Grade Analytics for Portfolio Management</p>',
+                unsafe_allow_html=True)
+
+    # Tool selection tabs
+    tool_tab1, tool_tab2, tool_tab3, tool_tab4, tool_tab5 = st.tabs([
+        "📊 Technical Analysis",
+        "🔄 Peer Comparison",
+        "📅 Events Calendar",
+        "🏛️ Institutional Activity",
+        "📈 Risk Analytics"
+    ])
+
+    with tool_tab1:
+        display_technical_analysis_tool()
+
+    with tool_tab2:
+        display_peer_comparison_tool()
+
+    with tool_tab3:
+        display_events_calendar_tool()
+
+    with tool_tab4:
+        display_institutional_activity_tool()
+
+    with tool_tab5:
+        display_risk_analytics_tool()
+
+
+def display_technical_analysis_tool():
+    """Display technical analysis tool."""
+    st.subheader("📊 Technical Analysis")
+    st.markdown("Comprehensive technical indicators and trading signals")
+
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        symbol = st.text_input("Enter Stock Symbol", value="AAPL", key="ta_symbol").upper()
+    with col2:
+        period = st.selectbox("Analysis Period", ["6mo", "1y", "2y"], index=1, key="ta_period")
+
+    if st.button("Run Technical Analysis", type="primary", key="ta_run"):
+        if symbol:
+            with st.spinner(f"Analyzing {symbol}..."):
+                analyzer = get_technical_analyzer()
+                result = analyzer.analyze(symbol, period=period)
+
+                if result:
+                    # Summary metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Current Price", f"${result.current_price:.2f}")
+                    with col2:
+                        trend_color = "green" if "BULLISH" in result.trend.value.upper() else "red" if "BEARISH" in result.trend.value.upper() else "gray"
+                        st.metric("Trend", result.trend.value)
+                    with col3:
+                        signal_color = "green" if "BUY" in result.overall_signal.value.upper() else "red" if "SELL" in result.overall_signal.value.upper() else "gray"
+                        st.metric("Signal", result.overall_signal.value)
+                    with col4:
+                        st.metric("Signal Strength", f"{result.signal_strength:.0f}/100")
+
+                    st.markdown("---")
+
+                    # Indicator details in columns
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        st.markdown("##### 📉 Moving Averages")
+                        ma = result.moving_averages
+                        ma_data = {
+                            "Indicator": ["SMA 20", "SMA 50", "SMA 200", "EMA 12", "EMA 26"],
+                            "Value": [f"${ma.sma_20:.2f}", f"${ma.sma_50:.2f}", f"${ma.sma_200:.2f}" if ma.sma_200 > 0 else "N/A", f"${ma.ema_12:.2f}", f"${ma.ema_26:.2f}"],
+                            "vs Price": [f"{ma.price_vs_sma_20:+.1f}%", f"{ma.price_vs_sma_50:+.1f}%", f"{ma.price_vs_sma_200:+.1f}%" if ma.sma_200 > 0 else "N/A", "-", "-"]
+                        }
+                        st.dataframe(pd.DataFrame(ma_data), hide_index=True)
+
+                        if ma.golden_cross:
+                            st.success("✅ Golden Cross (Bullish)")
+                        elif ma.death_cross:
+                            st.error("❌ Death Cross (Bearish)")
+
+                        st.markdown("##### 📊 RSI & Stochastic")
+                        rsi = result.rsi
+                        stoch = result.stochastic
+                        osc_data = {
+                            "Indicator": ["RSI (14)", "RSI (7)", "Stochastic %K", "Stochastic %D"],
+                            "Value": [f"{rsi.rsi_14:.1f}", f"{rsi.rsi_7:.1f}", f"{stoch.k_line:.1f}", f"{stoch.d_line:.1f}"],
+                            "Status": [
+                                "Overbought" if rsi.is_overbought else "Oversold" if rsi.is_oversold else "Neutral",
+                                "-",
+                                "Overbought" if stoch.is_overbought else "Oversold" if stoch.is_oversold else "Neutral",
+                                "-"
+                            ]
+                        }
+                        st.dataframe(pd.DataFrame(osc_data), hide_index=True)
+
+                    with col2:
+                        st.markdown("##### 📈 MACD")
+                        macd = result.macd
+                        macd_data = {
+                            "Component": ["MACD Line", "Signal Line", "Histogram"],
+                            "Value": [f"{macd.macd_line:.3f}", f"{macd.signal_line:.3f}", f"{macd.histogram:.3f}"],
+                            "Status": [
+                                "Bullish" if macd.is_bullish else "Bearish",
+                                macd.crossover.title() if macd.crossover else "-",
+                                macd.histogram_trend.title()
+                            ]
+                        }
+                        st.dataframe(pd.DataFrame(macd_data), hide_index=True)
+
+                        st.markdown("##### 🎯 Bollinger Bands")
+                        bb = result.bollinger
+                        bb_data = {
+                            "Band": ["Upper", "Middle", "Lower"],
+                            "Value": [f"${bb.upper_band:.2f}", f"${bb.middle_band:.2f}", f"${bb.lower_band:.2f}"]
+                        }
+                        st.dataframe(pd.DataFrame(bb_data), hide_index=True)
+                        st.caption(f"Bandwidth: {bb.bandwidth:.1f}% | %B: {bb.percent_b:.2f}")
+                        if bb.squeeze:
+                            st.warning("⚠️ Volatility Squeeze Detected")
+
+                        st.markdown("##### 🎚️ Support & Resistance")
+                        sr = result.support_resistance
+                        sr_data = {
+                            "Level": ["Resistance 2", "Resistance 1", "Pivot", "Support 1", "Support 2"],
+                            "Price": [f"${sr.resistance_2:.2f}", f"${sr.resistance_1:.2f}", f"${sr.pivot_point:.2f}", f"${sr.support_1:.2f}", f"${sr.support_2:.2f}"]
+                        }
+                        st.dataframe(pd.DataFrame(sr_data), hide_index=True)
+
+                    # Trading Signals
+                    st.markdown("---")
+                    st.markdown("##### 📋 Trading Signals")
+                    if result.signals:
+                        signals_data = []
+                        for sig in result.signals:
+                            signals_data.append({
+                                "Indicator": sig.indicator,
+                                "Signal": sig.signal.value,
+                                "Description": sig.description
+                            })
+                        st.dataframe(pd.DataFrame(signals_data), hide_index=True, use_container_width=True)
+                    else:
+                        st.info("No significant signals detected")
+
+                else:
+                    st.error(f"Could not analyze {symbol}. Please check the symbol.")
+
+
+def display_peer_comparison_tool():
+    """Display peer comparison tool."""
+    st.subheader("🔄 Peer Comparison")
+    st.markdown("Compare a stock against its sector/industry peers")
+
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        symbol = st.text_input("Enter Stock Symbol", value="AAPL", key="peer_symbol").upper()
+    with col2:
+        max_peers = st.slider("Max Peers", 5, 20, 10, key="peer_count")
+
+    if st.button("Compare to Peers", type="primary", key="peer_run"):
+        if symbol:
+            with st.spinner(f"Finding peers and analyzing {symbol}..."):
+                analyzer = get_peer_analyzer()
+                comparison = analyzer.compare(symbol, max_peers=max_peers)
+
+                if comparison.peers:
+                    # Summary
+                    st.markdown(f"### {comparison.target_name}")
+                    st.caption(f"Sector: {comparison.sector} | Industry: {comparison.industry}")
+
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Overall Ranking", comparison.overall_ranking)
+                    with col2:
+                        st.metric("Peers Analyzed", len(comparison.peers))
+                    with col3:
+                        target = next((p for p in comparison.peers if p.symbol == symbol), None)
+                        if target:
+                            st.metric("Overall Rank", f"#{target.overall_rank} of {len(comparison.peers)}")
+
+                    st.markdown("---")
+
+                    # Strengths and Weaknesses
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown("##### 💪 Strengths")
+                        if comparison.strengths:
+                            for s in comparison.strengths:
+                                st.success(s)
+                        else:
+                            st.info("No standout strengths identified")
+                    with col2:
+                        st.markdown("##### ⚠️ Weaknesses")
+                        if comparison.weaknesses:
+                            for w in comparison.weaknesses:
+                                st.warning(w)
+                        else:
+                            st.info("No significant weaknesses identified")
+
+                    st.markdown("---")
+
+                    # Peer Comparison Table
+                    st.markdown("##### 📊 Peer Comparison Table")
+                    peer_data = []
+                    for peer in comparison.peers:
+                        peer_data.append({
+                            "Symbol": peer.symbol,
+                            "Name": peer.name[:25] + "..." if len(peer.name) > 25 else peer.name,
+                            "Market Cap": f"${peer.market_cap/1e9:.1f}B" if peer.market_cap >= 1e9 else f"${peer.market_cap/1e6:.0f}M",
+                            "P/E": f"{peer.pe_ratio:.1f}" if peer.pe_ratio > 0 else "N/A",
+                            "P/B": f"{peer.pb_ratio:.1f}" if peer.pb_ratio > 0 else "N/A",
+                            "Rev Growth": f"{peer.revenue_growth*100:.1f}%" if peer.revenue_growth else "N/A",
+                            "Profit Margin": f"{peer.profit_margin*100:.1f}%" if peer.profit_margin else "N/A",
+                            "ROE": f"{peer.roe*100:.1f}%" if peer.roe else "N/A",
+                            "1Y Return": f"{peer.return_1y*100:+.1f}%" if peer.return_1y else "N/A",
+                            "Overall Rank": f"#{peer.overall_rank}"
+                        })
+
+                    peer_df = pd.DataFrame(peer_data)
+                    st.dataframe(peer_df, hide_index=True, use_container_width=True)
+
+                    # Valuation Comparison Chart
+                    st.markdown("---")
+                    st.markdown("##### 📈 Valuation Comparison")
+
+                    chart_data = []
+                    for peer in comparison.peers[:10]:
+                        if peer.pe_ratio > 0 and peer.pe_ratio < 100:
+                            chart_data.append({
+                                "Symbol": peer.symbol,
+                                "P/E Ratio": peer.pe_ratio,
+                                "Is Target": peer.symbol == symbol
+                            })
+
+                    if chart_data:
+                        chart_df = pd.DataFrame(chart_data)
+                        fig = px.bar(chart_df, x="Symbol", y="P/E Ratio",
+                                   color="Is Target",
+                                   color_discrete_map={True: "green", False: "steelblue"},
+                                   title="P/E Ratio Comparison")
+                        fig.update_layout(showlegend=False, height=400)
+                        st.plotly_chart(fig, use_container_width=True)
+
+                else:
+                    st.error(f"Could not find peers for {symbol}")
+
+
+def display_events_calendar_tool():
+    """Display events calendar tool."""
+    st.subheader("📅 Events Calendar")
+    st.markdown("Track earnings, dividends, and analyst actions for your watchlist")
+
+    # Get watchlist symbols
+    wm = get_watchlist_manager()
+    watchlist_names = wm.get_watchlist_names()
+
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col1:
+        if watchlist_names:
+            source = st.selectbox("Symbol Source", ["Enter Manually", "From Watchlist"], key="event_source")
+        else:
+            source = "Enter Manually"
+            st.caption("Create a watchlist to use saved symbols")
+
+    if source == "Enter Manually":
+        with col2:
+            symbols_input = st.text_input("Symbols (comma-separated)", value="AAPL,MSFT,GOOGL", key="event_symbols")
+            symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()]
+    else:
+        with col2:
+            selected_wl = st.selectbox("Select Watchlist", watchlist_names, key="event_watchlist")
+            wl = wm.get_watchlist(selected_wl)
+            symbols = [s.symbol for s in wl.stocks] if wl else []
+
+    with col3:
+        days_ahead = st.slider("Days Ahead", 7, 90, 30, key="event_days")
+
+    if st.button("Get Events", type="primary", key="event_run"):
+        if symbols:
+            calendar = get_events_calendar()
+
+            with st.spinner("Fetching events..."):
+                summary = calendar.get_calendar_summary(symbols, days_ahead=days_ahead)
+
+                # Summary metrics
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total Events", summary.total_events)
+                with col2:
+                    st.metric("Earnings This Week", summary.earnings_this_week)
+                with col3:
+                    st.metric("Dividends This Week", summary.dividends_this_week)
+                with col4:
+                    st.metric("Symbols Tracked", len(symbols))
+
+                st.markdown("---")
+
+                # Earnings Calendar
+                st.markdown("##### 📊 Upcoming Earnings")
+                if summary.earnings_events:
+                    earnings_data = []
+                    for e in summary.earnings_events[:20]:
+                        earnings_data.append({
+                            "Symbol": e.symbol,
+                            "Company": e.company_name[:30],
+                            "Earnings Date": e.earnings_date,
+                            "EPS Estimate": f"${e.eps_estimate:.2f}" if e.eps_estimate else "N/A",
+                            "Revenue Est.": f"${e.revenue_estimate/1e9:.2f}B" if e.revenue_estimate >= 1e9 else f"${e.revenue_estimate/1e6:.0f}M" if e.revenue_estimate else "N/A"
+                        })
+                    st.dataframe(pd.DataFrame(earnings_data), hide_index=True, use_container_width=True)
+                else:
+                    st.info("No upcoming earnings in the selected period")
+
+                # Dividend Calendar
+                st.markdown("##### 💰 Upcoming Dividends")
+                if summary.dividend_events:
+                    div_data = []
+                    for d in summary.dividend_events[:20]:
+                        div_data.append({
+                            "Symbol": d.symbol,
+                            "Company": d.company_name[:30],
+                            "Ex-Dividend Date": d.ex_dividend_date,
+                            "Amount": f"${d.dividend_amount:.2f}" if d.dividend_amount else "N/A",
+                            "Yield": f"{d.dividend_yield*100:.2f}%" if d.dividend_yield else "N/A"
+                        })
+                    st.dataframe(pd.DataFrame(div_data), hide_index=True, use_container_width=True)
+                else:
+                    st.info("No upcoming dividends in the selected period")
+
+                # Recent Analyst Actions
+                st.markdown("##### 📝 Recent Analyst Actions")
+                analyst_actions = calendar.get_recent_analyst_actions(symbols, days_back=30)
+                if analyst_actions:
+                    analyst_data = []
+                    for a in analyst_actions[:15]:
+                        analyst_data.append({
+                            "Date": a.date,
+                            "Symbol": a.symbol,
+                            "Firm": a.firm[:20],
+                            "Action": a.action,
+                            "Old Rating": a.old_rating,
+                            "New Rating": a.new_rating
+                        })
+                    st.dataframe(pd.DataFrame(analyst_data), hide_index=True, use_container_width=True)
+                else:
+                    st.info("No recent analyst actions")
+        else:
+            st.warning("Please enter at least one symbol")
+
+
+def display_institutional_activity_tool():
+    """Display institutional and insider activity tool."""
+    st.subheader("🏛️ Institutional & Insider Activity")
+    st.markdown("Track smart money movements and insider transactions")
+
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        symbol = st.text_input("Enter Stock Symbol", value="AAPL", key="inst_symbol").upper()
+    with col2:
+        days_back = st.slider("Insider History (Days)", 30, 180, 90, key="inst_days")
+
+    if st.button("Analyze Ownership", type="primary", key="inst_run"):
+        if symbol:
+            tracker = get_institutional_tracker()
+
+            with st.spinner(f"Analyzing ownership for {symbol}..."):
+                summary = tracker.get_ownership_summary(symbol)
+                sentiment = tracker.analyze_insider_sentiment(symbol, period_days=days_back)
+
+                # Summary metrics
+                st.markdown(f"### {summary.company_name}")
+
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Institutional Ownership", f"{summary.institutional_pct*100:.1f}%")
+                with col2:
+                    st.metric("Insider Ownership", f"{summary.insider_pct*100:.1f}%")
+                with col3:
+                    st.metric("Institutional Trend", summary.institutional_trend)
+                with col4:
+                    sentiment_color = "green" if "Buy" in sentiment.sentiment_label else "red" if "Sell" in sentiment.sentiment_label else "gray"
+                    st.metric("Insider Sentiment", sentiment.sentiment_label)
+
+                st.markdown("---")
+
+                # Two columns for institutional and insider
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("##### 🏦 Top Institutional Holders")
+                    if summary.top_institutional_holders:
+                        inst_data = []
+                        for h in summary.top_institutional_holders:
+                            inst_data.append({
+                                "Holder": h.holder_name[:30],
+                                "Shares": f"{h.shares:,}",
+                                "Value": f"${h.value/1e6:.1f}M" if h.value >= 1e6 else f"${h.value:,.0f}",
+                                "% Held": f"{h.pct_held:.2f}%"
+                            })
+                        st.dataframe(pd.DataFrame(inst_data), hide_index=True, use_container_width=True)
+                    else:
+                        st.info("No institutional holder data available")
+
+                    st.markdown("##### 📊 Top Fund Holders")
+                    if summary.top_fund_holders:
+                        fund_data = []
+                        for h in summary.top_fund_holders:
+                            fund_data.append({
+                                "Fund": h.holder_name[:30],
+                                "Shares": f"{h.shares:,}",
+                                "Value": f"${h.value/1e6:.1f}M" if h.value >= 1e6 else f"${h.value:,.0f}"
+                            })
+                        st.dataframe(pd.DataFrame(fund_data), hide_index=True, use_container_width=True)
+                    else:
+                        st.info("No fund holder data available")
+
+                with col2:
+                    st.markdown("##### 👤 Insider Activity Summary")
+
+                    # Sentiment gauge
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        st.metric("Sentiment Score", f"{sentiment.sentiment_score:+.0f}")
+                    with col_b:
+                        st.metric("Net Value", f"${sentiment.net_value:+,.0f}")
+
+                    st.markdown("**Transaction Breakdown:**")
+                    trans_data = {
+                        "Type": ["Buy Transactions", "Sell Transactions", "Total Buy Value", "Total Sell Value", "Unique Buyers", "Unique Sellers"],
+                        "Value": [
+                            sentiment.buy_transactions,
+                            sentiment.sell_transactions,
+                            f"${sentiment.total_buy_value:,.0f}",
+                            f"${sentiment.total_sell_value:,.0f}",
+                            sentiment.unique_insiders_buying,
+                            sentiment.unique_insiders_selling
+                        ]
+                    }
+                    st.dataframe(pd.DataFrame(trans_data), hide_index=True, use_container_width=True)
+
+                    # Recent transactions
+                    st.markdown("##### 📋 Recent Insider Transactions")
+                    transactions = tracker.get_insider_transactions(symbol, days_back=days_back)
+                    if transactions:
+                        trans_list = []
+                        for t in transactions[:10]:
+                            trans_list.append({
+                                "Date": t.transaction_date,
+                                "Insider": t.insider_name[:20],
+                                "Type": t.transaction_type.value,
+                                "Shares": f"{t.shares:,}",
+                                "Value": f"${t.value:,.0f}"
+                            })
+                        st.dataframe(pd.DataFrame(trans_list), hide_index=True, use_container_width=True)
+                    else:
+                        st.info("No recent insider transactions")
+
+
+def display_risk_analytics_tool():
+    """Display portfolio risk analytics tool."""
+    st.subheader("📈 Portfolio Risk Analytics")
+    st.markdown("Calculate risk metrics, correlations, and benchmark comparisons")
+
+    # Input method
+    input_method = st.radio("Input Method", ["Enter Symbols", "From Watchlist"], horizontal=True, key="risk_input")
+
+    if input_method == "Enter Symbols":
+        symbols_input = st.text_input("Portfolio Symbols (comma-separated)", value="AAPL,MSFT,GOOGL,AMZN,META", key="risk_symbols")
+        symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()]
+    else:
+        wm = get_watchlist_manager()
+        watchlist_names = wm.get_watchlist_names()
+        if watchlist_names:
+            selected_wl = st.selectbox("Select Watchlist", watchlist_names, key="risk_watchlist")
+            wl = wm.get_watchlist(selected_wl)
+            symbols = [s.symbol for s in wl.stocks] if wl else []
+        else:
+            st.warning("No watchlists available. Create one first.")
+            symbols = []
+
+    col1, col2 = st.columns(2)
+    with col1:
+        benchmark = st.selectbox("Benchmark", ["SPY", "QQQ", "IWM", "DIA"], key="risk_benchmark")
+    with col2:
+        period = st.selectbox("Analysis Period", ["6mo", "1y", "2y", "5y"], index=1, key="risk_period")
+
+    if st.button("Analyze Portfolio Risk", type="primary", key="risk_run"):
+        if symbols and len(symbols) >= 2:
+            analytics = get_portfolio_analytics()
+
+            with st.spinner("Calculating portfolio metrics..."):
+                # Get portfolio returns (equal-weighted)
+                all_returns = []
+                valid_symbols = []
+
+                for sym in symbols:
+                    hist = get_ticker_history(sym, period=period)
+                    if hist is not None and not hist.empty and 'Close' in hist.columns:
+                        returns = hist['Close'].pct_change().dropna().values
+                        if len(returns) > 50:
+                            all_returns.append(returns)
+                            valid_symbols.append(sym)
+
+                if len(all_returns) >= 2:
+                    # Align all return series
+                    min_len = min(len(r) for r in all_returns)
+                    aligned = [r[-min_len:] for r in all_returns]
+
+                    # Equal-weighted portfolio returns
+                    import numpy as np
+                    portfolio_returns = np.mean(aligned, axis=0).tolist()
+
+                    # Get benchmark returns
+                    bench_hist = get_ticker_history(benchmark, period=period)
+                    if bench_hist is not None and not bench_hist.empty:
+                        bench_returns = bench_hist['Close'].pct_change().dropna().values[-min_len:].tolist()
+                    else:
+                        bench_returns = None
+
+                    # Calculate metrics
+                    risk_metrics = analytics.calculate_risk_metrics(portfolio_returns, bench_returns)
+                    perf_metrics = analytics.calculate_performance_metrics(portfolio_returns)
+                    correlation = analytics.calculate_correlation_matrix(valid_symbols, period=period)
+
+                    # Display Risk Metrics
+                    st.markdown("---")
+                    st.markdown("##### 📊 Risk Metrics")
+
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Annual Volatility", f"{risk_metrics.volatility_annual*100:.1f}%")
+                        st.metric("Max Drawdown", f"{risk_metrics.max_drawdown*100:.1f}%")
+                    with col2:
+                        st.metric("Sharpe Ratio", f"{risk_metrics.sharpe_ratio:.2f}")
+                        st.metric("Sortino Ratio", f"{risk_metrics.sortino_ratio:.2f}")
+                    with col3:
+                        st.metric("VaR (95%)", f"{risk_metrics.var_95*100:.2f}%")
+                        st.metric("CVaR (95%)", f"{risk_metrics.cvar_95*100:.2f}%")
+                    with col4:
+                        st.metric("Beta", f"{risk_metrics.beta:.2f}")
+                        st.metric("Alpha (Annual)", f"{risk_metrics.alpha*100:.2f}%")
+
+                    # Performance Metrics
+                    st.markdown("---")
+                    st.markdown("##### 📈 Performance Metrics")
+
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Total Return", f"{perf_metrics.total_return*100:+.1f}%")
+                    with col2:
+                        st.metric("Annualized Return", f"{perf_metrics.annualized_return*100:+.1f}%")
+                    with col3:
+                        st.metric("Best Day", f"{perf_metrics.best_day*100:+.2f}%")
+                    with col4:
+                        st.metric("Worst Day", f"{perf_metrics.worst_day*100:.2f}%")
+
+                    period_col1, period_col2, period_col3, period_col4 = st.columns(4)
+                    with period_col1:
+                        st.metric("1 Week", f"{perf_metrics.return_1w*100:+.1f}%")
+                    with period_col2:
+                        st.metric("1 Month", f"{perf_metrics.return_1m*100:+.1f}%")
+                    with period_col3:
+                        st.metric("3 Months", f"{perf_metrics.return_3m*100:+.1f}%")
+                    with period_col4:
+                        st.metric("1 Year", f"{perf_metrics.return_1y*100:+.1f}%")
+
+                    # Benchmark Comparison
+                    if bench_returns:
+                        benchmark_comp = analytics.compare_to_benchmark(portfolio_returns, benchmark, period)
+
+                        st.markdown("---")
+                        st.markdown(f"##### 🎯 Benchmark Comparison (vs {benchmark})")
+
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.metric("Portfolio Return", f"{benchmark_comp.portfolio_return*100:+.1f}%")
+                        with col2:
+                            st.metric("Benchmark Return", f"{benchmark_comp.benchmark_return*100:+.1f}%")
+                        with col3:
+                            excess = benchmark_comp.excess_return * 100
+                            st.metric("Excess Return", f"{excess:+.1f}%",
+                                    delta=f"{'Outperformed' if excess > 0 else 'Underperformed'}")
+                        with col4:
+                            st.metric("Information Ratio", f"{benchmark_comp.information_ratio:.2f}")
+
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Up Capture", f"{benchmark_comp.up_capture*100:.0f}%")
+                        with col2:
+                            st.metric("Down Capture", f"{benchmark_comp.down_capture*100:.0f}%")
+                        with col3:
+                            st.metric("Batting Avg", f"{benchmark_comp.batting_average*100:.0f}%")
+
+                    # Correlation Matrix
+                    st.markdown("---")
+                    st.markdown("##### 🔗 Correlation Matrix")
+
+                    if correlation.matrix and len(correlation.matrix) > 1:
+                        import numpy as np
+                        corr_df = pd.DataFrame(
+                            correlation.matrix,
+                            columns=correlation.symbols,
+                            index=correlation.symbols
+                        )
+
+                        fig = px.imshow(
+                            corr_df,
+                            labels=dict(color="Correlation"),
+                            x=correlation.symbols,
+                            y=correlation.symbols,
+                            color_continuous_scale="RdBu_r",
+                            zmin=-1, zmax=1
+                        )
+                        fig.update_layout(height=400)
+                        st.plotly_chart(fig, use_container_width=True)
+
+                        # High correlation warnings
+                        high_corr = []
+                        for i in range(len(correlation.symbols)):
+                            for j in range(i+1, len(correlation.symbols)):
+                                if correlation.matrix[i][j] > 0.8:
+                                    high_corr.append(f"{correlation.symbols[i]} & {correlation.symbols[j]}: {correlation.matrix[i][j]:.2f}")
+
+                        if high_corr:
+                            st.warning(f"⚠️ High correlations detected: {', '.join(high_corr)}")
+
+                    # Concentration Risk
+                    st.markdown("---")
+                    st.markdown("##### 🎲 Diversification Analysis")
+
+                    # Assume equal weights for now
+                    positions = {s: 100000 / len(valid_symbols) for s in valid_symbols}
+                    concentration = analytics.get_concentration_risk(positions)
+
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Total Positions", concentration.get('total_positions', 0))
+                    with col2:
+                        st.metric("Effective Positions", f"{concentration.get('effective_positions', 0):.1f}")
+                    with col3:
+                        div_ratio = concentration.get('diversification_ratio', 0)
+                        st.metric("Diversification Ratio", f"{div_ratio*100:.0f}%",
+                                help="Higher is better. 100% means equal weights.")
+
+                else:
+                    st.error("Not enough valid data for portfolio analysis. Need at least 2 stocks with sufficient history.")
+        else:
+            st.warning("Please enter at least 2 symbols for portfolio analysis")
+
+
 def main():
     """Main Streamlit app with navigation."""
 
@@ -2426,7 +3089,7 @@ def main():
 
     page = st.sidebar.radio(
         "Navigation",
-        ["📈 Stock Analysis", "📊 Portfolio Builder", "🔍 Stock Screener"],
+        ["📈 Stock Analysis", "📊 Portfolio Builder", "🔍 Stock Screener", "🛠️ Asset Manager Tools"],
         label_visibility="collapsed"
     )
 
@@ -2436,8 +3099,10 @@ def main():
         display_stock_analysis_page()
     elif page == "📊 Portfolio Builder":
         display_portfolio_builder_page()
-    else:
+    elif page == "🔍 Stock Screener":
         display_stock_screener_page()
+    else:
+        display_asset_manager_tools_page()
 
 
 if __name__ == "__main__":
