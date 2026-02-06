@@ -20,6 +20,20 @@ from plotly.subplots import make_subplots
 from src.agents.master_agent import MasterAgent
 from src.agents.portfolio_optimizer_agent import PortfolioOptimizerAgent
 from src.models.schemas import AnalysisReport, AgentStatus
+from src.screener import (
+    StockScreener,
+    ScreenedStock,
+    ScreenerCriteria,
+    StockCategory,
+    Recommendation,
+    get_sp500_symbols,
+    get_nasdaq100_symbols,
+    get_dow30_symbols,
+    get_sector_stocks,
+    get_all_major_stocks,
+    get_dividend_aristocrats,
+    get_all_sectors,
+)
 
 
 # Page configuration
@@ -1780,6 +1794,428 @@ def display_stock_analysis_page():
                     st.rerun()
 
 
+def display_stock_screener_page():
+    """Display the stock screener page for finding value and growth stocks."""
+    st.markdown('<h1 class="main-header">🔍 Stock Screener</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; color: gray;">Scan NYSE & NASDAQ for Value and Growth Opportunities</p>',
+                unsafe_allow_html=True)
+
+    # Initialize session state
+    if 'screener_results' not in st.session_state:
+        st.session_state.screener_results = None
+    if 'screening_complete' not in st.session_state:
+        st.session_state.screening_complete = False
+
+    # Sidebar configuration
+    with st.sidebar:
+        st.header("⚙️ Screening Configuration")
+
+        # Stock Universe Selection
+        st.subheader("📊 Stock Universe")
+        universe = st.selectbox(
+            "Select Universe",
+            ["S&P 500", "NASDAQ 100", "Dow Jones 30", "Dividend Aristocrats", "All Major Stocks", "Custom Sector"],
+            index=0
+        )
+
+        # If custom sector selected, show sector dropdown
+        selected_sector = None
+        if universe == "Custom Sector":
+            selected_sector = st.selectbox(
+                "Select Sector",
+                get_all_sectors()
+            )
+
+        st.markdown("---")
+
+        # Value Criteria
+        st.subheader("💰 Value Criteria")
+        max_pe = st.slider("Max P/E Ratio", 5, 50, 20)
+        max_pb = st.slider("Max P/B Ratio", 0.5, 10.0, 3.0, step=0.5)
+        max_peg = st.slider("Max PEG Ratio", 0.5, 3.0, 1.5, step=0.1)
+
+        st.markdown("---")
+
+        # Growth Criteria
+        st.subheader("📈 Growth Criteria")
+        min_revenue_growth = st.slider("Min Revenue Growth (%)", 0, 50, 10) / 100
+        min_earnings_growth = st.slider("Min Earnings Growth (%)", 0, 50, 10) / 100
+
+        st.markdown("---")
+
+        # Quality Criteria
+        st.subheader("✨ Quality Criteria")
+        min_profit_margin = st.slider("Min Profit Margin (%)", 0, 30, 5) / 100
+        min_roe = st.slider("Min ROE (%)", 0, 40, 10) / 100
+
+        st.markdown("---")
+
+        # Market Cap Filter
+        st.subheader("📏 Size Filter")
+        min_market_cap_b = st.slider("Min Market Cap ($B)", 0.1, 100.0, 1.0, step=0.1)
+        min_market_cap = min_market_cap_b * 1e9
+
+        st.markdown("---")
+
+        # Run button
+        run_screener = st.button("🚀 Run Screener", type="primary", use_container_width=True)
+
+    # Main content area
+    if run_screener:
+        # Get symbols based on universe selection
+        if universe == "S&P 500":
+            symbols = get_sp500_symbols()
+        elif universe == "NASDAQ 100":
+            symbols = get_nasdaq100_symbols()
+        elif universe == "Dow Jones 30":
+            symbols = get_dow30_symbols()
+        elif universe == "Dividend Aristocrats":
+            symbols = get_dividend_aristocrats()
+        elif universe == "Custom Sector" and selected_sector:
+            symbols = get_sector_stocks(selected_sector)
+        else:
+            symbols = get_all_major_stocks()
+
+        # Create criteria
+        criteria = ScreenerCriteria(
+            max_pe_ratio=max_pe,
+            max_pb_ratio=max_pb,
+            max_peg_ratio=max_peg,
+            min_revenue_growth=min_revenue_growth,
+            min_earnings_growth=min_earnings_growth,
+            min_profit_margin=min_profit_margin,
+            min_roe=min_roe,
+            min_market_cap=min_market_cap,
+        )
+
+        # Run screening
+        st.info(f"Screening {len(symbols)} stocks from {universe}...")
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+
+        def update_progress(current, total, symbol):
+            progress_bar.progress(current / total)
+            status_text.text(f"Analyzing {symbol}... ({current}/{total})")
+
+        screener = StockScreener()
+
+        # Run async screening
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            results = loop.run_until_complete(
+                screener.screen_stocks(symbols, criteria, update_progress)
+            )
+        finally:
+            loop.close()
+
+        progress_bar.progress(1.0)
+        status_text.text(f"Screening complete! Analyzed {len(results)} stocks.")
+
+        st.session_state.screener_results = results
+        st.session_state.screener = screener
+        st.session_state.screening_complete = True
+
+    # Display results
+    if st.session_state.screening_complete and st.session_state.screener_results:
+        results = st.session_state.screener_results
+        screener = st.session_state.screener
+
+        st.markdown("---")
+
+        # Summary statistics
+        summary = screener.get_screening_summary()
+
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
+            st.metric("Stocks Screened", summary.get('total_screened', 0))
+        with col2:
+            st.metric("Value Stocks", summary.get('value_stocks', 0))
+        with col3:
+            st.metric("Growth Stocks", summary.get('growth_stocks', 0))
+        with col4:
+            st.metric("Strong Buy", summary.get('strong_buy', 0))
+        with col5:
+            st.metric("Buy", summary.get('buy', 0))
+
+        st.markdown("---")
+
+        # Tabs for different views
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "🏆 Top Recommendations",
+            "💰 Value Stocks",
+            "📈 Growth Stocks",
+            "💵 Dividend Stocks",
+            "📋 All Results"
+        ])
+
+        with tab1:
+            st.subheader("Top Stock Recommendations")
+            top_stocks = screener.get_top_recommendations(n=20)
+            if top_stocks:
+                display_screener_results_table(top_stocks)
+            else:
+                st.info("No stocks met the criteria for a buy recommendation.")
+
+        with tab2:
+            st.subheader("Value Stocks")
+            value_stocks = screener.get_value_stocks(min_score=50)
+            value_stocks = sorted(value_stocks, key=lambda x: x.value_score, reverse=True)[:30]
+            if value_stocks:
+                display_screener_results_table(value_stocks, show_value_metrics=True)
+            else:
+                st.info("No value stocks found with the current criteria.")
+
+        with tab3:
+            st.subheader("Growth Stocks")
+            growth_stocks = screener.get_growth_stocks(min_score=50)
+            growth_stocks = sorted(growth_stocks, key=lambda x: x.growth_score, reverse=True)[:30]
+            if growth_stocks:
+                display_screener_results_table(growth_stocks, show_growth_metrics=True)
+            else:
+                st.info("No growth stocks found with the current criteria.")
+
+        with tab4:
+            st.subheader("Dividend Stocks")
+            dividend_stocks = screener.get_dividend_stocks(min_yield=0.02)
+            dividend_stocks = sorted(dividend_stocks, key=lambda x: x.dividend_yield or 0, reverse=True)[:30]
+            if dividend_stocks:
+                display_screener_results_table(dividend_stocks, show_dividend_metrics=True)
+            else:
+                st.info("No dividend stocks found with the current criteria.")
+
+        with tab5:
+            st.subheader("All Screened Stocks")
+            all_results = sorted(results, key=lambda x: x.overall_score, reverse=True)
+            display_screener_results_table(all_results)
+
+        # Sector breakdown chart
+        st.markdown("---")
+        st.subheader("📊 Sector Analysis")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # Sector distribution
+            sector_counts = {}
+            for stock in results:
+                sector = stock.sector if stock.sector != "Unknown" else "Other"
+                sector_counts[sector] = sector_counts.get(sector, 0) + 1
+
+            if sector_counts:
+                sector_df = pd.DataFrame({
+                    'Sector': list(sector_counts.keys()),
+                    'Count': list(sector_counts.values())
+                })
+                fig = px.pie(sector_df, values='Count', names='Sector', title='Stocks by Sector')
+                fig.update_layout(height=400)
+                st.plotly_chart(fig, use_container_width=True)
+
+        with col2:
+            # Recommendation distribution
+            rec_counts = {}
+            for stock in results:
+                rec = stock.recommendation.value
+                rec_counts[rec] = rec_counts.get(rec, 0) + 1
+
+            if rec_counts:
+                rec_df = pd.DataFrame({
+                    'Recommendation': list(rec_counts.keys()),
+                    'Count': list(rec_counts.values())
+                })
+                color_map = {
+                    'Strong Buy': 'green',
+                    'Buy': 'lightgreen',
+                    'Hold': 'yellow',
+                    'Sell': 'orange',
+                    'Strong Sell': 'red'
+                }
+                fig = px.bar(rec_df, x='Recommendation', y='Count', title='Recommendation Distribution',
+                           color='Recommendation', color_discrete_map=color_map)
+                fig.update_layout(height=400, showlegend=False)
+                st.plotly_chart(fig, use_container_width=True)
+
+        # Export results
+        st.markdown("---")
+        st.subheader("📥 Export Results")
+
+        export_data = []
+        for stock in results:
+            export_data.append({
+                'Symbol': stock.symbol,
+                'Name': stock.name,
+                'Sector': stock.sector,
+                'Price': stock.current_price,
+                'P/E': stock.pe_ratio,
+                'P/B': stock.pb_ratio,
+                'Revenue Growth': stock.revenue_growth,
+                'Earnings Growth': stock.earnings_growth,
+                'Profit Margin': stock.profit_margin,
+                'ROE': stock.roe,
+                'Dividend Yield': stock.dividend_yield,
+                'Value Score': stock.value_score,
+                'Growth Score': stock.growth_score,
+                'Quality Score': stock.quality_score,
+                'Overall Score': stock.overall_score,
+                'Category': stock.category.value,
+                'Recommendation': stock.recommendation.value,
+            })
+
+        export_df = pd.DataFrame(export_data)
+        csv = export_df.to_csv(index=False)
+
+        st.download_button(
+            label="Download Results (CSV)",
+            data=csv,
+            file_name=f"stock_screener_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv"
+        )
+
+    else:
+        # Show instructions when no results
+        st.markdown("""
+        ### How to Use the Stock Screener
+
+        1. **Select a Stock Universe** - Choose from S&P 500, NASDAQ 100, Dow 30, or scan all major stocks
+        2. **Set Screening Criteria** - Adjust value, growth, and quality filters in the sidebar
+        3. **Run the Screener** - Click "Run Screener" to analyze stocks
+        4. **Review Results** - Explore recommendations by category (Value, Growth, Dividend)
+        5. **Export** - Download results as CSV for further analysis
+
+        ---
+
+        ### Stock Categories
+
+        | Category | Description |
+        |----------|-------------|
+        | **Value** | Low P/E, P/B ratios - undervalued relative to fundamentals |
+        | **Growth** | High revenue and earnings growth rates |
+        | **Dividend** | Solid dividend yield with sustainable payout |
+        | **Quality** | Strong profitability and returns |
+        | **Momentum** | Positive price trends |
+
+        ---
+
+        ### Scoring System
+
+        Each stock receives scores (0-100) for:
+        - **Value Score** - Based on P/E, P/B, P/S, PEG ratios
+        - **Growth Score** - Based on revenue, earnings, EPS growth
+        - **Quality Score** - Based on margins, ROE, ROA
+        - **Momentum Score** - Based on 1M, 3M, YTD, 1Y performance
+
+        The **Overall Score** is a weighted average used for recommendations.
+        """)
+
+
+def display_screener_results_table(
+    stocks: list[ScreenedStock],
+    show_value_metrics: bool = False,
+    show_growth_metrics: bool = False,
+    show_dividend_metrics: bool = False
+):
+    """Display screener results in a formatted table."""
+    if not stocks:
+        st.info("No stocks to display.")
+        return
+
+    data = []
+    for stock in stocks:
+        row = {
+            'Symbol': stock.symbol,
+            'Name': stock.name[:25] + '...' if len(stock.name) > 25 else stock.name,
+            'Sector': stock.sector[:15] if stock.sector else 'N/A',
+            'Price': f"${stock.current_price:.2f}" if stock.current_price else "N/A",
+        }
+
+        if show_value_metrics:
+            row['P/E'] = f"{stock.pe_ratio:.1f}" if stock.pe_ratio else "N/A"
+            row['P/B'] = f"{stock.pb_ratio:.1f}" if stock.pb_ratio else "N/A"
+            row['PEG'] = f"{stock.peg_ratio:.1f}" if stock.peg_ratio else "N/A"
+            row['Value Score'] = f"{stock.value_score:.0f}"
+        elif show_growth_metrics:
+            row['Rev Growth'] = f"{stock.revenue_growth*100:.1f}%" if stock.revenue_growth else "N/A"
+            row['Earn Growth'] = f"{stock.earnings_growth*100:.1f}%" if stock.earnings_growth else "N/A"
+            row['Growth Score'] = f"{stock.growth_score:.0f}"
+        elif show_dividend_metrics:
+            row['Div Yield'] = f"{stock.dividend_yield*100:.2f}%" if stock.dividend_yield else "N/A"
+            row['Payout'] = f"{stock.payout_ratio*100:.0f}%" if stock.payout_ratio else "N/A"
+            row['Quality Score'] = f"{stock.quality_score:.0f}"
+        else:
+            row['Overall'] = f"{stock.overall_score:.0f}"
+            row['Value'] = f"{stock.value_score:.0f}"
+            row['Growth'] = f"{stock.growth_score:.0f}"
+            row['Quality'] = f"{stock.quality_score:.0f}"
+
+        row['Category'] = stock.category.value.title()
+        row['Recommendation'] = stock.recommendation.value
+
+        data.append(row)
+
+    df = pd.DataFrame(data)
+
+    # Style the recommendation column
+    def style_recommendation(val):
+        colors = {
+            'Strong Buy': 'background-color: #28a745; color: white',
+            'Buy': 'background-color: #90EE90',
+            'Hold': 'background-color: #FFD700',
+            'Sell': 'background-color: #FFA500',
+            'Strong Sell': 'background-color: #dc3545; color: white'
+        }
+        return colors.get(val, '')
+
+    st.dataframe(
+        df,
+        hide_index=True,
+        use_container_width=True,
+        height=min(len(df) * 35 + 38, 600)
+    )
+
+    # Show detailed info for selected stock
+    st.markdown("##### 📝 Stock Details")
+    selected_symbol = st.selectbox(
+        "Select a stock for detailed analysis",
+        [s.symbol for s in stocks],
+        key=f"detail_select_{show_value_metrics}_{show_growth_metrics}_{show_dividend_metrics}"
+    )
+
+    if selected_symbol:
+        selected_stock = next((s for s in stocks if s.symbol == selected_symbol), None)
+        if selected_stock:
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                st.markdown(f"**{selected_stock.name}**")
+                st.write(f"Sector: {selected_stock.sector}")
+                st.write(f"Industry: {selected_stock.industry}")
+                if selected_stock.market_cap:
+                    cap_str = f"${selected_stock.market_cap/1e9:.1f}B" if selected_stock.market_cap >= 1e9 else f"${selected_stock.market_cap/1e6:.0f}M"
+                    st.write(f"Market Cap: {cap_str}")
+
+            with col2:
+                st.markdown("**Valuation**")
+                st.write(f"P/E: {selected_stock.pe_ratio:.1f}" if selected_stock.pe_ratio else "P/E: N/A")
+                st.write(f"P/B: {selected_stock.pb_ratio:.1f}" if selected_stock.pb_ratio else "P/B: N/A")
+                st.write(f"P/S: {selected_stock.ps_ratio:.1f}" if selected_stock.ps_ratio else "P/S: N/A")
+
+            with col3:
+                st.markdown("**Performance**")
+                if selected_stock.performance_1m:
+                    color = "green" if selected_stock.performance_1m > 0 else "red"
+                    st.markdown(f"1M: :{color}[{selected_stock.performance_1m*100:+.1f}%]")
+                if selected_stock.performance_3m:
+                    color = "green" if selected_stock.performance_3m > 0 else "red"
+                    st.markdown(f"3M: :{color}[{selected_stock.performance_3m*100:+.1f}%]")
+                if selected_stock.performance_ytd:
+                    color = "green" if selected_stock.performance_ytd > 0 else "red"
+                    st.markdown(f"YTD: :{color}[{selected_stock.performance_ytd*100:+.1f}%]")
+
+            # Analysis summary
+            if selected_stock.analysis_summary:
+                st.info(f"**Analysis:** {selected_stock.analysis_summary}")
+
+
 def main():
     """Main Streamlit app with navigation."""
 
@@ -1788,7 +2224,7 @@ def main():
 
     page = st.sidebar.radio(
         "Navigation",
-        ["📈 Stock Analysis", "📊 Portfolio Builder"],
+        ["📈 Stock Analysis", "📊 Portfolio Builder", "🔍 Stock Screener"],
         label_visibility="collapsed"
     )
 
@@ -1796,8 +2232,10 @@ def main():
 
     if page == "📈 Stock Analysis":
         display_stock_analysis_page()
-    else:
+    elif page == "📊 Portfolio Builder":
         display_portfolio_builder_page()
+    else:
+        display_stock_screener_page()
 
 
 if __name__ == "__main__":
