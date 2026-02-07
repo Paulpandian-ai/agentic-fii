@@ -373,12 +373,20 @@ class InvestmentManager:
             if stock.quality_score > 70:
                 pick.buy_reasons.append(f"High quality (Quality Score: {stock.quality_score:.0f})")
 
-            # Add risk factors
+            # Add risk factors - get beta from ticker info
             if stock.pe_ratio and stock.pe_ratio > 30:
                 pick.risk_factors.append(f"High P/E ratio ({stock.pe_ratio:.1f})")
-            if stock.beta and stock.beta > 1.5:
-                pick.risk_factors.append(f"High beta ({stock.beta:.2f})")
-                pick.beta = stock.beta
+
+            # Get beta from ticker info
+            try:
+                info = get_ticker_info(stock.symbol)
+                if info:
+                    beta = info.get('beta', 1.0) or 1.0
+                    pick.beta = beta
+                    if beta > 1.5:
+                        pick.risk_factors.append(f"High beta ({beta:.2f})")
+            except:
+                pick.beta = 1.0
 
             # Calculate composite score based on strategy
             pick.composite_score = self._calculate_composite_score(pick, strategy)
