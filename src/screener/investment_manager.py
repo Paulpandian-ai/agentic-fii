@@ -593,15 +593,58 @@ class InvestmentManager:
         stocks: list[StockPick],
         total_amount: float
     ) -> list[StockPick]:
-        """Allocate investment amount to stocks."""
-        for stock in stocks:
-            stock.investment_amount = total_amount * stock.weight
-            if stock.current_price > 0:
-                stock.shares_to_buy = int(stock.investment_amount / stock.current_price)
-                # Adjust investment amount to actual shares
-                stock.investment_amount = stock.shares_to_buy * stock.current_price
+        """Allocate investment amount to stocks ensuring full investment."""
+        if not stocks:
+            return stocks
 
-        return stocks
+        # First pass: identify stocks where we can buy at least 1 share
+        investable_stocks = []
+        for stock in stocks:
+            if stock.current_price > 0:
+                allocated = total_amount * stock.weight
+                if allocated >= stock.current_price:  # Can buy at least 1 share
+                    investable_stocks.append(stock)
+
+        if not investable_stocks:
+            # If no stocks can be bought, return empty
+            return []
+
+        # Redistribute weights among investable stocks
+        total_weight = sum(s.weight for s in investable_stocks)
+        for stock in investable_stocks:
+            stock.weight = stock.weight / total_weight if total_weight > 0 else 1 / len(investable_stocks)
+
+        # Second pass: allocate shares
+        remaining_cash = total_amount
+        for stock in investable_stocks:
+            target_amount = total_amount * stock.weight
+            if stock.current_price > 0:
+                stock.shares_to_buy = int(target_amount / stock.current_price)
+                stock.investment_amount = stock.shares_to_buy * stock.current_price
+                remaining_cash -= stock.investment_amount
+
+        # Third pass: use remaining cash to buy more shares (prioritize by expected return)
+        investable_stocks.sort(key=lambda x: x.mc_median_return if x.mc_median_return else 0, reverse=True)
+
+        for stock in investable_stocks:
+            if remaining_cash >= stock.current_price:
+                additional_shares = int(remaining_cash / stock.current_price)
+                if additional_shares > 0:
+                    stock.shares_to_buy += additional_shares
+                    added_amount = additional_shares * stock.current_price
+                    stock.investment_amount += added_amount
+                    remaining_cash -= added_amount
+
+            if remaining_cash < min(s.current_price for s in investable_stocks if s.current_price > 0):
+                break
+
+        # Recalculate actual weights based on final allocation
+        total_invested = sum(s.investment_amount for s in investable_stocks)
+        if total_invested > 0:
+            for stock in investable_stocks:
+                stock.weight = stock.investment_amount / total_invested
+
+        return investable_stocks
 
     def _run_monte_carlo_simulations(
         self,
