@@ -3081,6 +3081,825 @@ def display_risk_analytics_tool():
             st.warning("Please enter at least 2 symbols for portfolio analysis")
 
 
+def display_help_page():
+    """Display comprehensive help and documentation."""
+    st.markdown('<h1 class="main-header">❓ Help & Documentation</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; color: gray;">Complete Guide to Bridgewater Analytics Platform</p>',
+                unsafe_allow_html=True)
+
+    # Table of contents
+    help_tabs = st.tabs([
+        "📖 Overview",
+        "📈 Stock Analysis",
+        "📊 Portfolio Builder",
+        "🔍 Stock Screener",
+        "🛠️ Asset Manager Tools",
+        "📡 Data Sources & APIs",
+        "🧮 Calculation Methods"
+    ])
+
+    # ==================== OVERVIEW TAB ====================
+    with help_tabs[0]:
+        st.markdown("""
+        ## Platform Overview
+
+        **Bridgewater Analytics** is a comprehensive stock analysis platform inspired by institutional
+        investment practices. It combines multi-agent AI analysis with professional-grade portfolio
+        management tools.
+
+        ### Key Features
+
+        | Module | Description |
+        |--------|-------------|
+        | **Stock Analysis** | Multi-agent AI system analyzing stocks from 11 different perspectives |
+        | **Portfolio Builder** | Build and optimize portfolios with risk management |
+        | **Stock Screener** | Scan markets for value, growth, and dividend opportunities |
+        | **Asset Manager Tools** | Professional analytics including technical analysis, peer comparison, and risk metrics |
+
+        ### Architecture
+
+        The platform uses a **Master-Servant Multi-Agent Architecture**:
+
+        ```
+        Master Agent (Coordinator)
+            │
+            ├── Fundamental Agents (Core Analysis)
+            │   ├── Financial Health Agent
+            │   ├── Valuation Agent
+            │   ├── Growth Agent
+            │   └── Profitability Agent
+            │
+            ├── Market Agents (External Factors)
+            │   ├── Market Sentiment Agent
+            │   ├── Technical Agent
+            │   └── News & Events Agent
+            │
+            └── Ecosystem Agents (Business Context)
+                ├── Competitor Agent
+                ├── Supply Chain Agent
+                ├── Customer Agent
+                └── Macro Environment Agent
+        ```
+
+        ### Quick Start
+
+        1. **Stock Analysis**: Enter a ticker symbol and click "Analyze" for comprehensive AI-powered analysis
+        2. **Portfolio Builder**: Add multiple stocks and optimize your portfolio allocation
+        3. **Stock Screener**: Set filters and scan for stocks meeting your criteria
+        4. **Asset Manager Tools**: Access professional analytics for deeper insights
+
+        ---
+
+        ### System Requirements
+
+        - **Data Source**: Yahoo Finance (yfinance API)
+        - **Update Frequency**: Real-time with 5-minute caching
+        - **Rate Limiting**: 300ms delay between API calls to prevent throttling
+        """)
+
+    # ==================== STOCK ANALYSIS TAB ====================
+    with help_tabs[1]:
+        st.markdown("""
+        ## 📈 Stock Analysis Module
+
+        The Stock Analysis module uses a multi-agent AI system to provide comprehensive analysis
+        from 11 specialized perspectives.
+
+        ---
+
+        ### Agent Descriptions
+
+        #### Core Fundamental Agents
+
+        | Agent | Purpose | Key Metrics Analyzed |
+        |-------|---------|---------------------|
+        | **Financial Health** | Assess company's financial stability | Debt/Equity, Current Ratio, Quick Ratio, Interest Coverage, Altman Z-Score |
+        | **Valuation** | Determine if stock is fairly priced | P/E, P/B, P/S, EV/EBITDA, PEG Ratio, DCF Analysis |
+        | **Growth** | Evaluate growth potential | Revenue Growth, Earnings Growth, EPS Growth, Book Value Growth |
+        | **Profitability** | Analyze profit generation ability | Gross Margin, Operating Margin, Net Margin, ROE, ROA, ROIC |
+
+        #### Market & Technical Agents
+
+        | Agent | Purpose | Key Metrics Analyzed |
+        |-------|---------|---------------------|
+        | **Market Sentiment** | Gauge market perception | Analyst Ratings, Price Targets, Short Interest, Institutional Ownership |
+        | **Technical** | Analyze price patterns | Moving Averages, RSI, MACD, Volume Trends, Support/Resistance |
+        | **News & Events** | Monitor news impact | Recent Headlines, Earnings Dates, Dividend Events, Corporate Actions |
+
+        #### Ecosystem Agents
+
+        | Agent | Purpose | Key Metrics Analyzed |
+        |-------|---------|---------------------|
+        | **Competitor** | Compare to peers | Market Share, Relative Valuation, Competitive Position |
+        | **Supply Chain** | Analyze supplier risks | Key Suppliers, Supply Concentration, Geographic Risks |
+        | **Customer** | Evaluate customer base | Customer Concentration, Revenue Segments, Market Reach |
+        | **Macro Environment** | Assess economic factors | Interest Rate Sensitivity, Inflation Impact, Economic Cycle Position |
+
+        ---
+
+        ### Output Explanation
+
+        #### Overall Score (0-100)
+        Weighted combination of all agent scores:
+        - **80-100**: Excellent - Strong buy candidate
+        - **60-79**: Good - Potential buy with some concerns
+        - **40-59**: Neutral - Hold or watch
+        - **20-39**: Poor - Potential sell candidate
+        - **0-19**: Very Poor - Strong sell candidate
+
+        #### Recommendation Categories
+        - **Strong Buy**: Score ≥ 80, all major indicators positive
+        - **Buy**: Score 65-79, mostly positive indicators
+        - **Hold**: Score 45-64, mixed signals
+        - **Sell**: Score 30-44, mostly negative indicators
+        - **Strong Sell**: Score < 30, major red flags
+
+        ---
+
+        ### How to Use
+
+        1. Enter a stock symbol (e.g., AAPL, MSFT, GOOGL)
+        2. Click "Analyze Stock"
+        3. Wait for all 11 agents to complete analysis
+        4. Review the comprehensive report with:
+           - Executive summary
+           - Individual agent assessments
+           - Risk factors
+           - Investment thesis
+        """)
+
+    # ==================== PORTFOLIO BUILDER TAB ====================
+    with help_tabs[2]:
+        st.markdown("""
+        ## 📊 Portfolio Builder Module
+
+        Build and optimize investment portfolios with professional-grade tools.
+
+        ---
+
+        ### Features
+
+        #### Portfolio Construction
+        - Add multiple stocks with custom allocations
+        - Set investment amount and risk tolerance
+        - Automatic diversification analysis
+
+        #### Optimization Methods
+
+        | Method | Description | Best For |
+        |--------|-------------|----------|
+        | **Equal Weight** | Same allocation to each stock | Simple diversification |
+        | **Risk Parity** | Weight inversely to volatility | Risk-balanced portfolios |
+        | **Mean-Variance** | Optimize Sharpe ratio | Maximum risk-adjusted returns |
+        | **Minimum Variance** | Minimize portfolio volatility | Conservative investors |
+
+        ---
+
+        ### Metrics Calculated
+
+        #### Return Metrics
+        - **Expected Return**: Weighted average of individual stock returns
+        - **Historical Return**: Actual portfolio performance over selected period
+        - **Alpha**: Excess return vs benchmark
+
+        #### Risk Metrics
+        - **Portfolio Volatility**: Standard deviation of portfolio returns
+        - **Value at Risk (VaR)**: Maximum expected loss at confidence level
+        - **Maximum Drawdown**: Largest peak-to-trough decline
+        - **Beta**: Sensitivity to market movements
+
+        #### Efficiency Metrics
+        - **Sharpe Ratio**: Return per unit of risk
+        - **Sortino Ratio**: Return per unit of downside risk
+        - **Information Ratio**: Active return per unit of tracking error
+
+        ---
+
+        ### How to Use
+
+        1. **Add Stocks**: Enter symbols and quantities
+        2. **Set Parameters**: Investment amount, risk tolerance
+        3. **Choose Optimization**: Select optimization method
+        4. **Review Results**: Analyze suggested allocations
+        5. **Export**: Download portfolio report
+        """)
+
+    # ==================== STOCK SCREENER TAB ====================
+    with help_tabs[3]:
+        st.markdown("""
+        ## 🔍 Stock Screener Module
+
+        Scan NYSE and NASDAQ stocks to find value, growth, and dividend opportunities.
+
+        ---
+
+        ### Stock Universes
+
+        | Universe | Stocks | Description |
+        |----------|--------|-------------|
+        | **S&P 500** | ~500 | Large-cap US companies |
+        | **NASDAQ 100** | 100 | Top NASDAQ companies |
+        | **Dow Jones 30** | 30 | Blue-chip industrials |
+        | **Dividend Aristocrats** | ~65 | 25+ years of dividend increases |
+        | **Custom Sector** | Varies | Filter by specific sector |
+
+        ---
+
+        ### Screening Criteria
+
+        #### Value Criteria
+        | Filter | Description | Default |
+        |--------|-------------|---------|
+        | Max P/E Ratio | Price-to-Earnings cap | 20 |
+        | Max P/B Ratio | Price-to-Book cap | 3.0 |
+        | Max PEG Ratio | Price/Earnings to Growth cap | 1.5 |
+
+        #### Growth Criteria
+        | Filter | Description | Default |
+        |--------|-------------|---------|
+        | Min Revenue Growth | Year-over-year revenue growth | 10% |
+        | Min Earnings Growth | Year-over-year earnings growth | 10% |
+
+        #### Quality Criteria
+        | Filter | Description | Default |
+        |--------|-------------|---------|
+        | Min Profit Margin | Net income / Revenue | 5% |
+        | Min ROE | Return on Equity | 10% |
+        | Min Market Cap | Minimum company size | $1B |
+
+        ---
+
+        ### Scoring System
+
+        Each stock receives scores (0-100) in four categories:
+
+        #### Value Score
+        ```
+        Value Score = Average of:
+        - P/E Score (lower is better, max 100 at P/E < 10)
+        - P/B Score (lower is better, max 100 at P/B < 1)
+        - P/S Score (lower is better)
+        - PEG Score (lower is better, max 100 at PEG < 1)
+        ```
+
+        #### Growth Score
+        ```
+        Growth Score = Average of:
+        - Revenue Growth Score (higher is better)
+        - Earnings Growth Score (higher is better)
+        - EPS Growth Score (higher is better)
+        ```
+
+        #### Quality Score
+        ```
+        Quality Score = Average of:
+        - Profit Margin Score (higher is better)
+        - ROE Score (higher is better, max 100 at ROE > 20%)
+        - ROA Score (higher is better)
+        - Current Ratio Score (optimal around 1.5-2.0)
+        ```
+
+        #### Momentum Score
+        ```
+        Momentum Score = Weighted average of:
+        - 1-Month Return (20%)
+        - 3-Month Return (30%)
+        - 6-Month Return (30%)
+        - 1-Year Return (20%)
+        ```
+
+        #### Overall Score
+        ```
+        Overall Score = (Value × 25%) + (Growth × 25%) + (Quality × 30%) + (Momentum × 20%)
+        ```
+
+        ---
+
+        ### Recommendations
+
+        | Recommendation | Overall Score | Additional Criteria |
+        |---------------|---------------|---------------------|
+        | **Strong Buy** | ≥ 75 | Value + Quality scores > 60 |
+        | **Buy** | ≥ 60 | At least 2 scores > 50 |
+        | **Hold** | 40-59 | Mixed indicators |
+        | **Sell** | 25-39 | Multiple weak scores |
+        | **Strong Sell** | < 25 | Most scores below 30 |
+
+        ---
+
+        ### Watchlist Feature
+
+        Save stocks for monitoring:
+        - Create multiple watchlists
+        - Add stocks from screener results
+        - Track added price vs current price
+        - Add notes and categories
+        - Persistent storage (saved between sessions)
+        """)
+
+    # ==================== ASSET MANAGER TOOLS TAB ====================
+    with help_tabs[4]:
+        st.markdown("""
+        ## 🛠️ Asset Manager Tools
+
+        Professional-grade analytics for institutional-style portfolio management.
+
+        ---
+
+        ### 1. Technical Analysis
+
+        Comprehensive technical indicators and trading signals.
+
+        #### Moving Averages
+        | Indicator | Calculation | Signal |
+        |-----------|-------------|--------|
+        | SMA 20 | 20-day simple moving average | Short-term trend |
+        | SMA 50 | 50-day simple moving average | Medium-term trend |
+        | SMA 200 | 200-day simple moving average | Long-term trend |
+        | EMA 12/26 | Exponential moving averages | MACD components |
+        | Golden Cross | SMA 50 crosses above SMA 200 | Bullish signal |
+        | Death Cross | SMA 50 crosses below SMA 200 | Bearish signal |
+
+        #### Momentum Indicators
+        | Indicator | Description | Overbought/Oversold |
+        |-----------|-------------|---------------------|
+        | RSI (14) | Relative Strength Index | >70 / <30 |
+        | Stochastic %K | Price position in range | >80 / <20 |
+        | MACD | Trend momentum | Above/below signal line |
+
+        #### Volatility Indicators
+        | Indicator | Description |
+        |-----------|-------------|
+        | Bollinger Bands | ±2 standard deviations from SMA 20 |
+        | Bandwidth | (Upper - Lower) / Middle × 100 |
+        | %B | Position within bands (0-1) |
+        | Squeeze | Low volatility warning |
+
+        #### Support & Resistance
+        - **Pivot Point**: (High + Low + Close) / 3
+        - **Resistance 1**: (2 × Pivot) - Low
+        - **Resistance 2**: Pivot + (High - Low)
+        - **Support 1**: (2 × Pivot) - High
+        - **Support 2**: Pivot - (High - Low)
+
+        ---
+
+        ### 2. Peer Comparison
+
+        Compare stocks against sector/industry peers.
+
+        #### Metrics Compared
+        - **Valuation**: P/E, P/B, P/S, EV/EBITDA
+        - **Growth**: Revenue growth, Earnings growth
+        - **Profitability**: Margins, ROE, ROA
+        - **Performance**: 1M, 3M, 6M, 1Y returns
+
+        #### Ranking System
+        Each stock is ranked 1-N within its peer group:
+        - Valuation Rank (lower P/E = better rank)
+        - Growth Rank (higher growth = better rank)
+        - Profitability Rank (higher margins = better rank)
+        - Performance Rank (higher returns = better rank)
+        - Overall Rank (average of all ranks)
+
+        #### Peer Selection
+        Peers are automatically selected based on:
+        1. Same sector
+        2. Same or similar industry
+        3. Similar market capitalization (0.2x to 5x)
+
+        ---
+
+        ### 3. Events Calendar
+
+        Track important dates for your watchlist.
+
+        #### Event Types
+        | Event | Data Provided |
+        |-------|---------------|
+        | **Earnings** | Date, EPS estimate, Revenue estimate |
+        | **Dividends** | Ex-date, Amount, Yield |
+        | **Analyst Actions** | Upgrades, Downgrades, Price targets |
+
+        ---
+
+        ### 4. Institutional Activity
+
+        Monitor smart money movements.
+
+        #### Institutional Ownership
+        - Top institutional holders
+        - Top mutual fund holders
+        - Percentage held by institutions
+
+        #### Insider Transactions
+        - Recent buys and sells
+        - Transaction values
+        - Insider names and roles
+
+        #### Sentiment Analysis
+        ```
+        Sentiment Score = ((Buy Value - Sell Value) / Total Value) × 100
+        Range: -100 (all selling) to +100 (all buying)
+        ```
+
+        | Score | Label |
+        |-------|-------|
+        | ≥ 50 | Strong Buy Signal |
+        | 20-49 | Buy Signal |
+        | -19 to 19 | Neutral |
+        | -49 to -20 | Sell Signal |
+        | ≤ -50 | Strong Sell Signal |
+
+        ---
+
+        ### 5. Risk Analytics
+
+        Portfolio-level risk analysis.
+
+        #### Risk Metrics
+        | Metric | Description |
+        |--------|-------------|
+        | **Volatility** | Annualized standard deviation |
+        | **VaR 95%** | 5th percentile of daily returns |
+        | **CVaR 95%** | Average of worst 5% days |
+        | **Max Drawdown** | Largest peak-to-trough decline |
+        | **Beta** | Sensitivity to benchmark |
+        | **Alpha** | Risk-adjusted excess return |
+
+        #### Performance Metrics
+        | Metric | Description |
+        |--------|-------------|
+        | **Sharpe Ratio** | (Return - Rf) / Volatility |
+        | **Sortino Ratio** | (Return - Rf) / Downside Deviation |
+        | **Calmar Ratio** | Return / Max Drawdown |
+        | **Information Ratio** | Active Return / Tracking Error |
+
+        #### Benchmark Comparison
+        | Metric | Description |
+        |--------|-------------|
+        | **Up Capture** | Performance in up markets vs benchmark |
+        | **Down Capture** | Performance in down markets vs benchmark |
+        | **Batting Average** | % of periods outperforming |
+        | **Tracking Error** | Volatility of return difference |
+        """)
+
+    # ==================== DATA SOURCES TAB ====================
+    with help_tabs[5]:
+        st.markdown("""
+        ## 📡 Data Sources & APIs
+
+        ---
+
+        ### Primary Data Source: Yahoo Finance
+
+        The platform uses **yfinance** (Yahoo Finance API) as the primary data source.
+
+        #### Data Types Retrieved
+
+        | Data Type | API Method | Update Frequency |
+        |-----------|------------|------------------|
+        | Stock Info | `ticker.info` | Real-time |
+        | Price History | `ticker.history()` | Real-time |
+        | Financial Statements | `ticker.financials` | Quarterly |
+        | Recommendations | `ticker.recommendations` | As published |
+        | Institutional Holders | `ticker.institutional_holders` | Quarterly (13F filings) |
+        | Insider Transactions | `ticker.insider_transactions` | As filed (Form 4) |
+        | Earnings Calendar | `ticker.calendar` | Rolling |
+        | News | `ticker.news` | Real-time |
+
+        ---
+
+        ### Available Stock Information
+
+        ```python
+        # Sample of available fields from yfinance
+        {
+            'symbol': 'AAPL',
+            'shortName': 'Apple Inc.',
+            'sector': 'Technology',
+            'industry': 'Consumer Electronics',
+            'marketCap': 3000000000000,
+            'currentPrice': 175.50,
+            'trailingPE': 28.5,
+            'forwardPE': 25.2,
+            'priceToBook': 45.3,
+            'priceToSalesTrailing12Months': 7.2,
+            'enterpriseToEbitda': 22.1,
+            'pegRatio': 2.1,
+            'dividendYield': 0.005,
+            'payoutRatio': 0.15,
+            'beta': 1.25,
+            'profitMargins': 0.25,
+            'grossMargins': 0.43,
+            'operatingMargins': 0.30,
+            'returnOnEquity': 1.47,
+            'returnOnAssets': 0.28,
+            'revenueGrowth': 0.08,
+            'earningsGrowth': 0.12,
+            'currentRatio': 1.0,
+            'debtToEquity': 195.0,
+            'totalRevenue': 394000000000,
+            'netIncomeToCommon': 97000000000,
+            'heldPercentInstitutions': 0.61,
+            'heldPercentInsiders': 0.0007,
+            'shortRatio': 1.2,
+            'targetMeanPrice': 195.0,
+            'recommendationKey': 'buy',
+            'numberOfAnalystOpinions': 40,
+        }
+        ```
+
+        ---
+
+        ### Rate Limiting & Caching
+
+        To ensure reliable data access, the platform implements:
+
+        #### Rate Limiting
+        - **Delay**: 300ms between consecutive API calls
+        - **Prevents**: HTTP 429 "Too Many Requests" errors
+        - **Implementation**: Thread-safe singleton with timestamps
+
+        #### Caching
+        - **TTL**: 5 minutes (300 seconds) default
+        - **Storage**: In-memory cache
+        - **Keys**: Symbol + data type + parameters
+        - **Benefits**: Faster responses, reduced API load
+
+        ```python
+        # Cache configuration
+        DEFAULT_CACHE_TTL = 300  # 5 minutes
+        RATE_LIMIT_DELAY = 0.3  # 300ms
+        ```
+
+        ---
+
+        ### Data Limitations
+
+        | Limitation | Description |
+        |------------|-------------|
+        | **Delayed Quotes** | May be 15-20 minutes delayed |
+        | **Historical Data** | Limited to ~20 years |
+        | **Intraday Data** | Limited granularity for free API |
+        | **Fundamentals** | Updated quarterly |
+        | **Coverage** | US markets primarily |
+
+        ---
+
+        ### Stock Universe Data
+
+        Pre-defined stock lists included:
+
+        | List | Count | Source |
+        |------|-------|--------|
+        | S&P 500 | ~500 | Curated by sector |
+        | NASDAQ 100 | 100 | Top NASDAQ companies |
+        | Dow Jones 30 | 30 | Industrial average |
+        | Dividend Aristocrats | ~65 | 25+ year dividend growth |
+        | Sector ETFs | 11 | One per GICS sector |
+
+        ---
+
+        ### Error Handling
+
+        The platform handles common API errors:
+
+        | Error | Handling |
+        |-------|----------|
+        | Rate Limited (429) | Exponential backoff retry |
+        | Network Timeout | 3 retry attempts |
+        | Invalid Symbol | Graceful error message |
+        | Missing Data | Default values / N/A display |
+        """)
+
+    # ==================== CALCULATIONS TAB ====================
+    with help_tabs[6]:
+        st.markdown("""
+        ## 🧮 Calculation Methods
+
+        Detailed formulas and methodologies used throughout the platform.
+
+        ---
+
+        ### Risk Metrics
+
+        #### Volatility (Annualized)
+        ```
+        σ_annual = σ_daily × √252
+        where σ_daily = standard deviation of daily returns
+        ```
+
+        #### Sharpe Ratio
+        ```
+        Sharpe = (R_p - R_f) / σ_p
+        where:
+          R_p = Portfolio return (annualized)
+          R_f = Risk-free rate (default 5%)
+          σ_p = Portfolio volatility (annualized)
+        ```
+
+        #### Sortino Ratio
+        ```
+        Sortino = (R_p - R_f) / σ_d
+        where:
+          σ_d = Downside deviation (std of negative returns only)
+        ```
+
+        #### Maximum Drawdown
+        ```
+        MDD = min((P_t - P_peak) / P_peak)
+        where:
+          P_t = Price at time t
+          P_peak = Running maximum price
+        ```
+
+        #### Value at Risk (VaR)
+        ```
+        VaR_95% = Percentile(Returns, 5%)
+        VaR_99% = Percentile(Returns, 1%)
+        ```
+
+        #### Conditional VaR (Expected Shortfall)
+        ```
+        CVaR_95% = Mean(Returns where Returns ≤ VaR_95%)
+        ```
+
+        #### Beta
+        ```
+        β = Cov(R_p, R_m) / Var(R_m)
+        where:
+          R_p = Portfolio returns
+          R_m = Market (benchmark) returns
+        ```
+
+        #### Alpha (Jensen's Alpha)
+        ```
+        α = R_p - [R_f + β × (R_m - R_f)]
+        ```
+
+        ---
+
+        ### Technical Indicators
+
+        #### RSI (Relative Strength Index)
+        ```
+        RSI = 100 - (100 / (1 + RS))
+        where RS = Average Gain / Average Loss over N periods
+        Default N = 14
+        ```
+
+        #### MACD
+        ```
+        MACD Line = EMA(12) - EMA(26)
+        Signal Line = EMA(9) of MACD Line
+        Histogram = MACD Line - Signal Line
+        ```
+
+        #### Bollinger Bands
+        ```
+        Middle Band = SMA(20)
+        Upper Band = SMA(20) + (2 × σ)
+        Lower Band = SMA(20) - (2 × σ)
+        %B = (Price - Lower) / (Upper - Lower)
+        ```
+
+        #### Stochastic Oscillator
+        ```
+        %K = 100 × (Close - Lowest Low) / (Highest High - Lowest Low)
+        %D = SMA(3) of %K
+        Default period = 14
+        ```
+
+        #### On-Balance Volume (OBV)
+        ```
+        If Close > Close_prev: OBV = OBV_prev + Volume
+        If Close < Close_prev: OBV = OBV_prev - Volume
+        If Close = Close_prev: OBV = OBV_prev
+        ```
+
+        ---
+
+        ### Valuation Metrics
+
+        #### P/E Ratio
+        ```
+        P/E = Market Price per Share / Earnings per Share
+        ```
+
+        #### P/B Ratio
+        ```
+        P/B = Market Price per Share / Book Value per Share
+        ```
+
+        #### EV/EBITDA
+        ```
+        EV = Market Cap + Total Debt - Cash
+        EV/EBITDA = Enterprise Value / EBITDA
+        ```
+
+        #### PEG Ratio
+        ```
+        PEG = P/E Ratio / Earnings Growth Rate
+        ```
+
+        ---
+
+        ### Portfolio Metrics
+
+        #### Portfolio Return
+        ```
+        R_p = Σ(w_i × R_i)
+        where:
+          w_i = Weight of asset i
+          R_i = Return of asset i
+        ```
+
+        #### Portfolio Variance
+        ```
+        σ²_p = Σ Σ (w_i × w_j × σ_i × σ_j × ρ_ij)
+        where:
+          ρ_ij = Correlation between assets i and j
+        ```
+
+        #### Correlation
+        ```
+        ρ_xy = Cov(X, Y) / (σ_x × σ_y)
+        ```
+
+        #### Information Ratio
+        ```
+        IR = (R_p - R_b) / σ_(p-b)
+        where:
+          R_b = Benchmark return
+          σ_(p-b) = Tracking error
+        ```
+
+        #### Up/Down Capture Ratio
+        ```
+        Up Capture = (R_p in up markets) / (R_b in up markets)
+        Down Capture = (R_p in down markets) / (R_b in down markets)
+        ```
+
+        ---
+
+        ### Scoring Algorithms
+
+        #### Stock Screener Overall Score
+        ```
+        Overall = (Value × 0.25) + (Growth × 0.25) + (Quality × 0.30) + (Momentum × 0.20)
+        ```
+
+        #### Technical Analysis Signal Strength
+        ```
+        Signal Score = Σ(Signal Values) normalized to 0-100
+        where Signal Values:
+          Strong Buy = +2
+          Buy = +1
+          Hold = 0
+          Sell = -1
+          Strong Sell = -2
+        ```
+
+        #### Insider Sentiment Score
+        ```
+        Sentiment = ((Buy Value - Sell Value) / Total Value) × 100
+        Adjusted for number of unique insiders
+        ```
+
+        ---
+
+        ### Concentration Metrics
+
+        #### Herfindahl-Hirschman Index (HHI)
+        ```
+        HHI = Σ(w_i²)
+        where w_i = weight of position i
+        Range: 1/N (equal weight) to 1 (single position)
+        ```
+
+        #### Effective Number of Positions
+        ```
+        Effective N = 1 / HHI
+        ```
+
+        #### Diversification Ratio
+        ```
+        Diversification = Effective N / Actual N
+        ```
+        """)
+
+        st.markdown("---")
+
+        st.info("""
+        **Need More Help?**
+
+        - Check the source code on GitHub for implementation details
+        - Report issues or request features via GitHub Issues
+        - Data accuracy depends on Yahoo Finance API availability
+        """)
+
+
 def main():
     """Main Streamlit app with navigation."""
 
@@ -3089,7 +3908,7 @@ def main():
 
     page = st.sidebar.radio(
         "Navigation",
-        ["📈 Stock Analysis", "📊 Portfolio Builder", "🔍 Stock Screener", "🛠️ Asset Manager Tools"],
+        ["📈 Stock Analysis", "📊 Portfolio Builder", "🔍 Stock Screener", "🛠️ Asset Manager Tools", "❓ Help & Docs"],
         label_visibility="collapsed"
     )
 
@@ -3101,8 +3920,10 @@ def main():
         display_portfolio_builder_page()
     elif page == "🔍 Stock Screener":
         display_stock_screener_page()
-    else:
+    elif page == "🛠️ Asset Manager Tools":
         display_asset_manager_tools_page()
+    else:
+        display_help_page()
 
 
 if __name__ == "__main__":
