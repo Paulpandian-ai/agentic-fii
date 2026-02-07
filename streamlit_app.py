@@ -130,19 +130,61 @@ st.markdown("""
         transition: all 0.2s ease;
     }
 
-    /* Tab hover effect */
-    .stTabs [data-baseweb="tab"]:hover {
-        color: #1976d2;
-        background-color: rgba(25, 118, 210, 0.04);
-        border-bottom: 3px solid #90caf9;
-    }
+    /* Different colors for each tab position */
+    /* Tab 1 - Blue */
+    .stTabs [data-baseweb="tab-list"] button:nth-child(1) { color: #1976d2; }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(1):hover { border-bottom-color: #90caf9; background-color: rgba(25, 118, 210, 0.04); }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(1)[aria-selected="true"] { border-bottom-color: #1976d2 !important; color: #1976d2 !important; }
 
-    /* Active/Selected tab */
+    /* Tab 2 - Teal */
+    .stTabs [data-baseweb="tab-list"] button:nth-child(2) { color: #00897b; }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(2):hover { border-bottom-color: #80cbc4; background-color: rgba(0, 137, 123, 0.04); }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(2)[aria-selected="true"] { border-bottom-color: #00897b !important; color: #00897b !important; }
+
+    /* Tab 3 - Green */
+    .stTabs [data-baseweb="tab-list"] button:nth-child(3) { color: #43a047; }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(3):hover { border-bottom-color: #a5d6a7; background-color: rgba(67, 160, 71, 0.04); }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(3)[aria-selected="true"] { border-bottom-color: #43a047 !important; color: #43a047 !important; }
+
+    /* Tab 4 - Orange */
+    .stTabs [data-baseweb="tab-list"] button:nth-child(4) { color: #fb8c00; }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(4):hover { border-bottom-color: #ffcc80; background-color: rgba(251, 140, 0, 0.04); }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(4)[aria-selected="true"] { border-bottom-color: #fb8c00 !important; color: #fb8c00 !important; }
+
+    /* Tab 5 - Red */
+    .stTabs [data-baseweb="tab-list"] button:nth-child(5) { color: #e53935; }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(5):hover { border-bottom-color: #ef9a9a; background-color: rgba(229, 57, 53, 0.04); }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(5)[aria-selected="true"] { border-bottom-color: #e53935 !important; color: #e53935 !important; }
+
+    /* Tab 6 - Purple */
+    .stTabs [data-baseweb="tab-list"] button:nth-child(6) { color: #8e24aa; }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(6):hover { border-bottom-color: #ce93d8; background-color: rgba(142, 36, 170, 0.04); }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(6)[aria-selected="true"] { border-bottom-color: #8e24aa !important; color: #8e24aa !important; }
+
+    /* Tab 7 - Pink */
+    .stTabs [data-baseweb="tab-list"] button:nth-child(7) { color: #d81b60; }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(7):hover { border-bottom-color: #f48fb1; background-color: rgba(216, 27, 96, 0.04); }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(7)[aria-selected="true"] { border-bottom-color: #d81b60 !important; color: #d81b60 !important; }
+
+    /* Tab 8 - Indigo */
+    .stTabs [data-baseweb="tab-list"] button:nth-child(8) { color: #3949ab; }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(8):hover { border-bottom-color: #9fa8da; background-color: rgba(57, 73, 171, 0.04); }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(8)[aria-selected="true"] { border-bottom-color: #3949ab !important; color: #3949ab !important; }
+
+    /* Tab 9 - Cyan */
+    .stTabs [data-baseweb="tab-list"] button:nth-child(9) { color: #00acc1; }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(9):hover { border-bottom-color: #80deea; background-color: rgba(0, 172, 193, 0.04); }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(9)[aria-selected="true"] { border-bottom-color: #00acc1 !important; color: #00acc1 !important; }
+
+    /* Tab 10+ - Brown */
+    .stTabs [data-baseweb="tab-list"] button:nth-child(n+10) { color: #6d4c41; }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(n+10):hover { border-bottom-color: #bcaaa4; background-color: rgba(109, 76, 65, 0.04); }
+    .stTabs [data-baseweb="tab-list"] button:nth-child(n+10)[aria-selected="true"] { border-bottom-color: #6d4c41 !important; color: #6d4c41 !important; }
+
+    /* Active tab font weight */
     .stTabs [aria-selected="true"] {
-        background-color: transparent !important;
-        color: #1976d2 !important;
         font-weight: 600 !important;
-        border-bottom: 3px solid #1976d2 !important;
+        background-color: transparent !important;
     }
 
     /* Tab highlight bar - hide default */
