@@ -105,82 +105,61 @@ st.markdown("""
         border-radius: 5px;
         font-weight: bold;
     }
-    /* Tab container styling */
+
+    /* Professional tab styling - clean underlined style */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: #f8f9fa;
-        padding: 10px 15px;
-        border-radius: 12px;
-        margin-bottom: 20px;
-        flex-wrap: wrap;
-        justify-content: center;
+        gap: 0;
+        background-color: transparent;
+        border-bottom: 2px solid #e0e0e0;
+        padding: 0;
+        margin-bottom: 1rem;
     }
 
     /* Individual tab styling */
     .stTabs [data-baseweb="tab"] {
         height: auto;
-        padding: 12px 20px;
-        border-radius: 8px;
-        font-weight: 600;
+        padding: 12px 24px;
+        border-radius: 0;
+        font-weight: 500;
         font-size: 14px;
-        background-color: #ffffff;
-        border: 2px solid #e0e0e0;
-        transition: all 0.3s ease;
-        margin: 4px;
+        background-color: transparent;
+        border: none;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+        color: #666;
+        transition: all 0.2s ease;
     }
 
     /* Tab hover effect */
     .stTabs [data-baseweb="tab"]:hover {
-        background-color: #e3f2fd;
-        border-color: #1976d2;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        color: #1976d2;
+        background-color: rgba(25, 118, 210, 0.04);
+        border-bottom: 3px solid #90caf9;
     }
 
     /* Active/Selected tab */
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%) !important;
-        color: white !important;
-        border-color: #1565c0 !important;
-        box-shadow: 0 4px 12px rgba(25, 118, 210, 0.4);
+        background-color: transparent !important;
+        color: #1976d2 !important;
+        font-weight: 600 !important;
+        border-bottom: 3px solid #1976d2 !important;
     }
 
-    /* Tab highlight bar */
+    /* Tab highlight bar - hide default */
     .stTabs [data-baseweb="tab-highlight"] {
         background-color: transparent !important;
     }
 
     /* Tab panel content */
     .stTabs [data-baseweb="tab-panel"] {
-        padding-top: 20px;
-    }
-
-    /* Core agent tabs - first 6 tabs (blue theme) */
-    .stTabs [data-baseweb="tab-list"] button:nth-child(-n+6) {
-        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-        border-color: #64b5f6;
-    }
-
-    .stTabs [data-baseweb="tab-list"] button:nth-child(-n+6):hover {
-        background: linear-gradient(135deg, #bbdefb 0%, #90caf9 100%);
-        border-color: #42a5f5;
-    }
-
-    /* Ecosystem agent tabs - tabs 7-11 (purple/violet theme) */
-    .stTabs [data-baseweb="tab-list"] button:nth-child(n+7):nth-child(-n+11) {
-        background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
-        border-color: #ba68c8;
-    }
-
-    .stTabs [data-baseweb="tab-list"] button:nth-child(n+7):nth-child(-n+11):hover {
-        background: linear-gradient(135deg, #e1bee7 0%, #ce93d8 100%);
-        border-color: #ab47bc;
+        padding-top: 1rem;
     }
 
     /* Tab text styling */
     .stTabs [data-baseweb="tab"] span {
-        font-weight: 600 !important;
+        font-weight: inherit !important;
     }
+
     .ecosystem-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border-radius: 10px;
@@ -5066,12 +5045,11 @@ def main():
     # Top navigation bar (shown on all pages except dashboard)
     page = st.session_state.current_page
     if page != "dashboard":
-        col1, col2, col3 = st.columns([1, 2, 1])
+        col1, col2 = st.columns([6, 1])
         with col2:
-            if st.button("🏠 Back to Home", use_container_width=True, type="secondary"):
+            if st.button("🏠 Home", key="home_btn"):
                 st.session_state.current_page = "dashboard"
                 st.rerun()
-        st.markdown("---")
 
     # Route to the appropriate page
     if page == "dashboard":
