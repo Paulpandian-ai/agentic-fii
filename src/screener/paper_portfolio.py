@@ -15,7 +15,7 @@ from datetime import datetime, date
 from typing import Optional
 from pathlib import Path
 
-from .yfinance_cache import get_ticker_info, get_ticker_history
+from src.utils.yfinance_cache import get_ticker_info, get_ticker_history
 
 
 @dataclass
