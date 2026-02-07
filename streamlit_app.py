@@ -1277,40 +1277,39 @@ def display_portfolio_builder_page():
     if 'holdings_data' not in st.session_state:
         st.session_state.holdings_data = []
 
-    # Sidebar configuration
-    with st.sidebar:
-        st.header("⚙️ Configuration")
+    # Configuration in main area
+    with st.expander("⚙️ Optimization Settings", expanded=True):
+        col1, col2, col3 = st.columns(3)
 
-        # Risk-free rate
-        risk_free_rate = st.slider(
-            "Risk-Free Rate (%)",
-            min_value=0.0,
-            max_value=10.0,
-            value=4.5,
-            step=0.1,
-            help="Current treasury rate for Sharpe calculation"
-        ) / 100
+        with col1:
+            risk_free_rate = st.slider(
+                "Risk-Free Rate (%)",
+                min_value=0.0,
+                max_value=10.0,
+                value=4.5,
+                step=0.1,
+                help="Current treasury rate for Sharpe calculation"
+            ) / 100
 
-        # Constraints
-        st.subheader("Constraints")
-        min_weight = st.slider("Min Weight per Stock (%)", 0, 20, 2) / 100
-        max_weight = st.slider("Max Weight per Stock (%)", 10, 50, 30) / 100
+        with col2:
+            min_weight = st.slider("Min Weight per Stock (%)", 0, 20, 2) / 100
+            max_weight = st.slider("Max Weight per Stock (%)", 10, 50, 30) / 100
 
-        st.markdown("---")
+        with col3:
+            additional_symbols = st.text_area(
+                "Additional Stocks to Consider (optional)",
+                value="",
+                height=80,
+                help="Enter additional stock symbols (one per line)"
+            )
+            additional_list = [s.strip().upper() for s in additional_symbols.split('\n') if s.strip()]
 
-        # Additional stocks to consider
-        st.subheader("Additional Stocks")
-        additional_symbols = st.text_area(
-            "Consider These Stocks (optional)",
-            value="",
-            height=100,
-            help="Enter additional stock symbols to consider for buying"
-        )
-        additional_list = [s.strip().upper() for s in additional_symbols.split('\n') if s.strip()]
-
-        st.markdown("---")
-        optimize_button = st.button("🚀 Optimize Portfolio", type="primary", use_container_width=True)
-        clear_button = st.button("🗑️ Clear Holdings", use_container_width=True)
+        # Buttons centered
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+        with col2:
+            optimize_button = st.button("🚀 Optimize Portfolio", type="primary", use_container_width=True)
+        with col3:
+            clear_button = st.button("🗑️ Clear Holdings", use_container_width=True)
 
         if clear_button:
             st.session_state.holdings_data = []
@@ -1665,97 +1664,81 @@ def display_stock_analysis_page():
     st.markdown('<p style="text-align: center; color: gray;">TrueNorth Multi-Agent Analysis System</p>',
                 unsafe_allow_html=True)
 
-    # Sidebar
-    with st.sidebar:
-        st.header("⚙️ Configuration")
+    # Configuration in main area
+    with st.expander("⚙️ Analysis Configuration", expanded=True):
+        col1, col2, col3 = st.columns(3)
 
-        # Stock symbol input
-        symbol = st.text_input(
-            "Stock Symbol",
-            value="AAPL",
-            placeholder="Enter ticker symbol (e.g., AAPL)",
-            help="Enter a valid stock ticker symbol"
-        ).upper()
+        with col1:
+            # Stock symbol input
+            symbol = st.text_input(
+                "Stock Symbol",
+                value="AAPL",
+                placeholder="Enter ticker symbol (e.g., AAPL)",
+                help="Enter a valid stock ticker symbol"
+            ).upper()
 
-        # Analysis mode
-        st.subheader("Analysis Mode")
-        analysis_mode = st.selectbox(
-            "Select Analysis Depth",
-            ["core", "ecosystem", "full"],
-            index=2,
-            format_func=lambda x: {
-                "core": "Core (4 agents)",
-                "ecosystem": "Ecosystem (9 agents)",
-                "full": "Full Analysis (All agents)"
-            }[x],
-            help="Core: Fundamental, Technical, Sentiment, Risk | Ecosystem: +Supply Chain, Customer, Competitive, Macro, Monetary"
-        )
+            # Analysis mode
+            analysis_mode = st.selectbox(
+                "Analysis Depth",
+                ["core", "ecosystem", "full"],
+                index=2,
+                format_func=lambda x: {
+                    "core": "Core (4 agents)",
+                    "ecosystem": "Ecosystem (9 agents)",
+                    "full": "Full Analysis (All agents)"
+                }[x],
+                help="Core: Fundamental, Technical, Sentiment, Risk | Ecosystem: +Supply Chain, Customer, Competitive, Macro, Monetary"
+            )
 
-        # Agent selection
-        st.subheader("Select Agents")
-        all_agents = st.checkbox("Run All Agents", value=True)
+        with col2:
+            # Agent selection
+            all_agents = st.checkbox("Run All Agents", value=True)
 
-        selected_agents = []
-        if not all_agents:
-            st.markdown("**Core Agents**")
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.checkbox("Fundamental", value=True):
-                    selected_agents.append("fundamental")
-                if st.checkbox("Technical", value=True):
-                    selected_agents.append("technical")
-            with col2:
-                if st.checkbox("Sentiment", value=True):
-                    selected_agents.append("sentiment")
-                if st.checkbox("Risk", value=True):
-                    selected_agents.append("risk")
+            selected_agents = []
+            if not all_agents:
+                st.markdown("**Core Agents**")
+                c1, c2 = st.columns(2)
+                with c1:
+                    if st.checkbox("Fundamental", value=True):
+                        selected_agents.append("fundamental")
+                    if st.checkbox("Technical", value=True):
+                        selected_agents.append("technical")
+                with c2:
+                    if st.checkbox("Sentiment", value=True):
+                        selected_agents.append("sentiment")
+                    if st.checkbox("Risk", value=True):
+                        selected_agents.append("risk")
 
-            if analysis_mode in ["ecosystem", "full"]:
-                st.markdown("**Ecosystem Agents**")
-                col3, col4 = st.columns(2)
-                with col3:
-                    if st.checkbox("Supply Chain", value=True):
-                        selected_agents.append("supply_chain")
-                    if st.checkbox("Customer", value=True):
-                        selected_agents.append("customer")
-                    if st.checkbox("Competitive", value=True):
-                        selected_agents.append("competitive")
-                with col4:
-                    if st.checkbox("Macro", value=True):
-                        selected_agents.append("macro")
-                    if st.checkbox("Monetary", value=True):
-                        selected_agents.append("monetary")
+                if analysis_mode in ["ecosystem", "full"]:
+                    st.markdown("**Ecosystem Agents**")
+                    c3, c4 = st.columns(2)
+                    with c3:
+                        if st.checkbox("Supply Chain", value=True):
+                            selected_agents.append("supply_chain")
+                        if st.checkbox("Customer", value=True):
+                            selected_agents.append("customer")
+                        if st.checkbox("Competitive", value=True):
+                            selected_agents.append("competitive")
+                    with c4:
+                        if st.checkbox("Macro", value=True):
+                            selected_agents.append("macro")
+                        if st.checkbox("Monetary", value=True):
+                            selected_agents.append("monetary")
 
-        # Execution mode
-        st.subheader("Execution Mode")
-        mode = st.radio(
-            "Agent Execution",
-            ["parallel", "sequential"],
-            index=0,
-            help="Parallel mode runs all agents simultaneously for faster results"
-        )
+        with col3:
+            # Execution mode
+            mode = st.radio(
+                "Agent Execution",
+                ["parallel", "sequential"],
+                index=0,
+                horizontal=True,
+                help="Parallel mode runs all agents simultaneously for faster results"
+            )
 
-        # Analyze button
-        st.markdown("---")
-        analyze_button = st.button("🚀 Analyze Stock", type="primary", use_container_width=True)
-
-        # Info
-        st.markdown("---")
-        st.markdown("### About")
-        st.markdown("""
-        **Core Agents:**
-        - Fundamental: Financials & valuation
-        - Technical: Price patterns & indicators
-        - Sentiment: News & market sentiment
-        - Risk: Volatility & risk factors
-
-        **Ecosystem Agents:**
-        - Supply Chain: Supplier analysis
-        - Customer: Customer base health
-        - Competitive: Market position
-        - Macro: Economic environment
-        - Monetary: Fed policy & rates
-        """)
+        # Analyze button centered
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            analyze_button = st.button("🚀 Analyze Stock", type="primary", use_container_width=True)
 
     # Main content
     if analyze_button:
@@ -2034,59 +2017,46 @@ def display_stock_screener_page():
     if 'show_watchlist_tab' not in st.session_state:
         st.session_state.show_watchlist_tab = False
 
-    # Sidebar configuration
-    with st.sidebar:
-        st.header("⚙️ Screening Configuration")
+    # Configuration in main area
+    with st.expander("⚙️ Screening Configuration", expanded=True):
+        col1, col2, col3, col4 = st.columns(4)
 
-        # Stock Universe Selection
-        st.subheader("📊 Stock Universe")
-        universe = st.selectbox(
-            "Select Universe",
-            ["S&P 500", "NASDAQ 100", "Dow Jones 30", "Dividend Aristocrats", "All Major Stocks", "Custom Sector"],
-            index=0
-        )
-
-        # If custom sector selected, show sector dropdown
-        selected_sector = None
-        if universe == "Custom Sector":
-            selected_sector = st.selectbox(
-                "Select Sector",
-                get_all_sectors()
+        with col1:
+            st.markdown("**📊 Universe**")
+            universe = st.selectbox(
+                "Select Universe",
+                ["S&P 500", "NASDAQ 100", "Dow Jones 30", "Dividend Aristocrats", "All Major Stocks", "Custom Sector"],
+                index=0,
+                label_visibility="collapsed"
             )
+            selected_sector = None
+            if universe == "Custom Sector":
+                selected_sector = st.selectbox("Select Sector", get_all_sectors())
 
-        st.markdown("---")
+            st.markdown("**📏 Size**")
+            min_market_cap_b = st.slider("Min Market Cap ($B)", 0.1, 100.0, 1.0, step=0.1)
+            min_market_cap = min_market_cap_b * 1e9
 
-        # Value Criteria
-        st.subheader("💰 Value Criteria")
-        max_pe = st.slider("Max P/E Ratio", 5, 50, 20)
-        max_pb = st.slider("Max P/B Ratio", 0.5, 10.0, 3.0, step=0.5)
-        max_peg = st.slider("Max PEG Ratio", 0.5, 3.0, 1.5, step=0.1)
+        with col2:
+            st.markdown("**💰 Value Criteria**")
+            max_pe = st.slider("Max P/E Ratio", 5, 50, 20)
+            max_pb = st.slider("Max P/B Ratio", 0.5, 10.0, 3.0, step=0.5)
+            max_peg = st.slider("Max PEG Ratio", 0.5, 3.0, 1.5, step=0.1)
 
-        st.markdown("---")
+        with col3:
+            st.markdown("**📈 Growth Criteria**")
+            min_revenue_growth = st.slider("Min Revenue Growth (%)", 0, 50, 10) / 100
+            min_earnings_growth = st.slider("Min Earnings Growth (%)", 0, 50, 10) / 100
 
-        # Growth Criteria
-        st.subheader("📈 Growth Criteria")
-        min_revenue_growth = st.slider("Min Revenue Growth (%)", 0, 50, 10) / 100
-        min_earnings_growth = st.slider("Min Earnings Growth (%)", 0, 50, 10) / 100
+        with col4:
+            st.markdown("**✨ Quality Criteria**")
+            min_profit_margin = st.slider("Min Profit Margin (%)", 0, 30, 5) / 100
+            min_roe = st.slider("Min ROE (%)", 0, 40, 10) / 100
 
-        st.markdown("---")
-
-        # Quality Criteria
-        st.subheader("✨ Quality Criteria")
-        min_profit_margin = st.slider("Min Profit Margin (%)", 0, 30, 5) / 100
-        min_roe = st.slider("Min ROE (%)", 0, 40, 10) / 100
-
-        st.markdown("---")
-
-        # Market Cap Filter
-        st.subheader("📏 Size Filter")
-        min_market_cap_b = st.slider("Min Market Cap ($B)", 0.1, 100.0, 1.0, step=0.1)
-        min_market_cap = min_market_cap_b * 1e9
-
-        st.markdown("---")
-
-        # Run button
-        run_screener = st.button("🚀 Run Screener", type="primary", use_container_width=True)
+        # Run button centered
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            run_screener = st.button("🚀 Run Screener", type="primary", use_container_width=True)
 
     # Main content area
     if run_screener:
@@ -3959,109 +3929,83 @@ def display_investment_manager_page():
     st.markdown('<p style="text-align: center; color: gray;">AI-Powered Stock Selection with Sharpe Optimization & Monte Carlo Projections</p>',
                 unsafe_allow_html=True)
 
-    # Sidebar configuration
-    with st.sidebar:
-        st.header("⚙️ Investment Parameters")
+    # Configuration in main area with expander
+    with st.expander("⚙️ Investment Parameters", expanded=True):
+        col1, col2, col3 = st.columns(3)
 
-        # Investment amount
-        investment_amount = st.number_input(
-            "Investment Amount ($)",
-            min_value=1000,
-            max_value=10000000,
-            value=100000,
-            step=5000,
-            key="inv_amount"
-        )
+        with col1:
+            # Investment amount
+            investment_amount = st.number_input(
+                "Investment Amount ($)",
+                min_value=1000,
+                max_value=10000000,
+                value=100000,
+                step=5000,
+                key="inv_amount"
+            )
 
-        st.markdown("---")
+            # Strategy selection
+            strategy_options = {
+                "Balanced Portfolio": InvestmentStrategy.BALANCED,
+                "Value Investing": InvestmentStrategy.VALUE,
+                "Growth Investing": InvestmentStrategy.GROWTH,
+                "Dividend Income": InvestmentStrategy.DIVIDEND,
+                "Momentum Trading": InvestmentStrategy.MOMENTUM,
+                "Quality Focus": InvestmentStrategy.QUALITY,
+            }
+            strategy_name = st.selectbox(
+                "Investment Strategy",
+                list(strategy_options.keys()),
+                index=0,
+                key="inv_strategy"
+            )
+            strategy = strategy_options[strategy_name]
 
-        # Strategy selection
-        st.subheader("📋 Strategy")
-        strategy_options = {
-            "Balanced Portfolio": InvestmentStrategy.BALANCED,
-            "Value Investing": InvestmentStrategy.VALUE,
-            "Growth Investing": InvestmentStrategy.GROWTH,
-            "Dividend Income": InvestmentStrategy.DIVIDEND,
-            "Momentum Trading": InvestmentStrategy.MOMENTUM,
-            "Quality Focus": InvestmentStrategy.QUALITY,
-        }
-        strategy_name = st.selectbox(
-            "Investment Strategy",
-            list(strategy_options.keys()),
-            index=0,
-            key="inv_strategy"
-        )
-        strategy = strategy_options[strategy_name]
+        with col2:
+            # Risk profile
+            risk_options = {
+                "Conservative": RiskProfile.CONSERVATIVE,
+                "Moderate": RiskProfile.MODERATE,
+                "Aggressive": RiskProfile.AGGRESSIVE,
+            }
+            risk_name = st.selectbox(
+                "Risk Tolerance",
+                list(risk_options.keys()),
+                index=1,
+                key="inv_risk"
+            )
+            risk_profile = risk_options[risk_name]
 
-        # Strategy description
-        strategy_desc = {
-            InvestmentStrategy.BALANCED: "Diversified approach balancing value, growth, and quality factors",
-            InvestmentStrategy.VALUE: "Focus on undervalued stocks with strong fundamentals",
-            InvestmentStrategy.GROWTH: "Target high-growth companies with momentum",
-            InvestmentStrategy.DIVIDEND: "Income-focused with sustainable dividend payers",
-            InvestmentStrategy.MOMENTUM: "Follow price trends and technical signals",
-            InvestmentStrategy.QUALITY: "Premium companies with strong profitability",
-        }
-        st.caption(strategy_desc[strategy])
+            # Universe
+            universe = st.selectbox(
+                "Stock Universe",
+                ["S&P 500", "NASDAQ 100", "Dow Jones 30", "Dividend Aristocrats"],
+                index=0,
+                key="inv_universe"
+            )
+            universe_map = {
+                "S&P 500": "sp500",
+                "NASDAQ 100": "nasdaq100",
+                "Dow Jones 30": "dow30",
+                "Dividend Aristocrats": "dividend"
+            }
 
-        st.markdown("---")
+        with col3:
+            # Number of stocks
+            num_stocks = st.slider("Number of Stocks", 5, 20, 10, key="inv_num_stocks")
 
-        # Risk profile
-        st.subheader("⚖️ Risk Profile")
-        risk_options = {
-            "Conservative": RiskProfile.CONSERVATIVE,
-            "Moderate": RiskProfile.MODERATE,
-            "Aggressive": RiskProfile.AGGRESSIVE,
-        }
-        risk_name = st.selectbox(
-            "Risk Tolerance",
-            list(risk_options.keys()),
-            index=1,
-            key="inv_risk"
-        )
-        risk_profile = risk_options[risk_name]
+            # Monte Carlo settings
+            num_simulations = st.select_slider(
+                "Monte Carlo Simulations",
+                options=[1000, 5000, 10000, 25000, 50000],
+                value=10000,
+                key="inv_simulations"
+            )
 
-        risk_desc = {
-            RiskProfile.CONSERVATIVE: "Lower volatility, larger caps, max 20% per position",
-            RiskProfile.MODERATE: "Balanced risk/return, max 25% per position",
-            RiskProfile.AGGRESSIVE: "Higher volatility accepted, max 35% per position",
-        }
-        st.caption(risk_desc[risk_profile])
-
-        st.markdown("---")
-
-        # Universe and stocks
-        st.subheader("🌐 Universe")
-        universe = st.selectbox(
-            "Stock Universe",
-            ["S&P 500", "NASDAQ 100", "Dow Jones 30", "Dividend Aristocrats"],
-            index=0,
-            key="inv_universe"
-        )
-        universe_map = {
-            "S&P 500": "sp500",
-            "NASDAQ 100": "nasdaq100",
-            "Dow Jones 30": "dow30",
-            "Dividend Aristocrats": "dividend"
-        }
-
-        num_stocks = st.slider("Number of Stocks", 5, 20, 10, key="inv_num_stocks")
-
-        st.markdown("---")
-
-        # Monte Carlo settings
-        st.subheader("🎲 Simulation")
-        num_simulations = st.select_slider(
-            "Monte Carlo Simulations",
-            options=[1000, 5000, 10000, 25000, 50000],
-            value=10000,
-            key="inv_simulations"
-        )
-
-        st.markdown("---")
-
-        # Run button
-        run_analysis = st.button("🚀 Generate Recommendations", type="primary", use_container_width=True)
+        # Run button centered
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            run_analysis = st.button("🚀 Generate Recommendations", type="primary", use_container_width=True)
 
     # Main content
     if run_analysis:
@@ -5106,31 +5050,30 @@ def main():
         display_login_page()
         return
 
-    # Sidebar with user info and logout only
-    st.sidebar.title("🏦 TrueNorth Investing")
-
-    # Show logged in user
-    if "user_email" in st.session_state:
-        st.sidebar.markdown(f"👤 **{st.session_state.user_email}**")
-
-    # Logout button
-    if st.sidebar.button("🚪 Logout", use_container_width=True):
-        logout()
-
-    st.sidebar.markdown("---")
-
-    # Home button to go back to dashboard
-    if st.sidebar.button("🏠 Home", use_container_width=True):
-        st.session_state.current_page = "dashboard"
-        st.rerun()
+    # Minimal sidebar with user info only
+    with st.sidebar:
+        st.title("🏦 TrueNorth Investing")
+        if "user_email" in st.session_state:
+            st.markdown(f"👤 {st.session_state.user_email}")
+        st.markdown("---")
+        if st.button("🚪 Logout", use_container_width=True):
+            logout()
 
     # Initialize current page
     if "current_page" not in st.session_state:
         st.session_state.current_page = "dashboard"
 
-    # Route to the appropriate page
+    # Top navigation bar (shown on all pages except dashboard)
     page = st.session_state.current_page
+    if page != "dashboard":
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🏠 Back to Home", use_container_width=True, type="secondary"):
+                st.session_state.current_page = "dashboard"
+                st.rerun()
+        st.markdown("---")
 
+    # Route to the appropriate page
     if page == "dashboard":
         display_dashboard()
     elif page == "stock_analysis":
