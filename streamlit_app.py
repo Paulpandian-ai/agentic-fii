@@ -1859,16 +1859,6 @@ def display_stock_analysis_page():
         # Welcome message
         st.info("👈 Enter a stock symbol and click **Analyze Stock** to get started!")
 
-        # Sample stocks
-        st.markdown("### Popular Stocks to Analyze")
-        sample_stocks = ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA", "NVDA", "META", "JPM"]
-        cols = st.columns(4)
-        for i, stock in enumerate(sample_stocks):
-            with cols[i % 4]:
-                if st.button(stock, key=f"sample_{stock}"):
-                    st.session_state['selected_symbol'] = stock
-                    st.rerun()
-
 
 def display_watchlist_management(screener_results: list = None):
     """Display watchlist management interface."""
@@ -4634,6 +4624,91 @@ def display_monte_carlo_details(portfolio):
         )
 
 
+def display_dashboard():
+    """Display the main dashboard with module cards."""
+    st.markdown('<h1 class="main-header">🏦 TrueNorth Investing</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; color: gray; margin-bottom: 2rem;">Stock Analysis & Portfolio Management Platform</p>',
+                unsafe_allow_html=True)
+
+    # Module cards CSS
+    st.markdown("""
+    <style>
+        .module-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            padding: 1.5rem;
+            color: white;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .module-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .module-card h3 {
+            margin: 0.5rem 0;
+            font-size: 1.2rem;
+        }
+        .module-card p {
+            margin: 0;
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+        .module-card .icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .card-stock { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+        .card-portfolio { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .card-screener { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+        .card-investment { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; }
+        .card-asset { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-help { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Create module cards
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if st.button("📈\n\n**Stock Analysis**\n\nMulti-agent AI analysis", key="nav_stock", use_container_width=True):
+            st.session_state.current_page = "stock_analysis"
+            st.rerun()
+
+    with col2:
+        if st.button("📊\n\n**Portfolio Builder**\n\nOptimize your portfolio", key="nav_portfolio", use_container_width=True):
+            st.session_state.current_page = "portfolio_builder"
+            st.rerun()
+
+    with col3:
+        if st.button("🔍\n\n**Stock Screener**\n\nFind investment opportunities", key="nav_screener", use_container_width=True):
+            st.session_state.current_page = "stock_screener"
+            st.rerun()
+
+    col4, col5, col6 = st.columns(3)
+
+    with col4:
+        if st.button("💼\n\n**Investment Manager**\n\nAI-powered stock picks", key="nav_investment", use_container_width=True):
+            st.session_state.current_page = "investment_manager"
+            st.rerun()
+
+    with col5:
+        if st.button("🛠️\n\n**Asset Manager Tools**\n\nAdvanced analytics", key="nav_asset", use_container_width=True):
+            st.session_state.current_page = "asset_manager"
+            st.rerun()
+
+    with col6:
+        if st.button("❓\n\n**Help & Docs**\n\nDocumentation & guides", key="nav_help", use_container_width=True):
+            st.session_state.current_page = "help"
+            st.rerun()
+
+
 def main():
     """Main Streamlit app with navigation."""
 
@@ -4642,7 +4717,7 @@ def main():
         display_login_page()
         return
 
-    # Navigation (only shown when authenticated)
+    # Sidebar with user info and logout only
     st.sidebar.title("🏦 TrueNorth Investing")
 
     # Show logged in user
@@ -4655,26 +4730,34 @@ def main():
 
     st.sidebar.markdown("---")
 
-    page = st.sidebar.radio(
-        "Navigation",
-        ["📈 Stock Analysis", "📊 Portfolio Builder", "🔍 Stock Screener", "💼 Investment Manager", "🛠️ Asset Manager Tools", "❓ Help & Docs"],
-        label_visibility="collapsed"
-    )
+    # Home button to go back to dashboard
+    if st.sidebar.button("🏠 Home", use_container_width=True):
+        st.session_state.current_page = "dashboard"
+        st.rerun()
 
-    st.sidebar.markdown("---")
+    # Initialize current page
+    if "current_page" not in st.session_state:
+        st.session_state.current_page = "dashboard"
 
-    if page == "📈 Stock Analysis":
+    # Route to the appropriate page
+    page = st.session_state.current_page
+
+    if page == "dashboard":
+        display_dashboard()
+    elif page == "stock_analysis":
         display_stock_analysis_page()
-    elif page == "📊 Portfolio Builder":
+    elif page == "portfolio_builder":
         display_portfolio_builder_page()
-    elif page == "🔍 Stock Screener":
+    elif page == "stock_screener":
         display_stock_screener_page()
-    elif page == "💼 Investment Manager":
+    elif page == "investment_manager":
         display_investment_manager_page()
-    elif page == "🛠️ Asset Manager Tools":
+    elif page == "asset_manager":
         display_asset_manager_tools_page()
-    else:
+    elif page == "help":
         display_help_page()
+    else:
+        display_dashboard()
 
 
 if __name__ == "__main__":
