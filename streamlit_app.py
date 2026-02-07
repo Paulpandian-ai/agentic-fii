@@ -47,6 +47,10 @@ from src.screener import (
     get_events_calendar,
     # Institutional Tracking
     get_institutional_tracker,
+    # Investment Manager
+    get_investment_manager,
+    InvestmentStrategy,
+    RiskProfile,
 )
 from src.utils.yfinance_cache import get_ticker_info, get_ticker_history
 
@@ -3900,6 +3904,679 @@ def display_help_page():
         """)
 
 
+def display_investment_manager_page():
+    """Display the Investment Manager page with AI-powered portfolio recommendations."""
+    st.markdown('<h1 class="main-header">💼 Investment Manager</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; color: gray;">AI-Powered Stock Selection with Sharpe Optimization & Monte Carlo Projections</p>',
+                unsafe_allow_html=True)
+
+    # Sidebar configuration
+    with st.sidebar:
+        st.header("⚙️ Investment Parameters")
+
+        # Investment amount
+        investment_amount = st.number_input(
+            "Investment Amount ($)",
+            min_value=1000,
+            max_value=10000000,
+            value=100000,
+            step=5000,
+            key="inv_amount"
+        )
+
+        st.markdown("---")
+
+        # Strategy selection
+        st.subheader("📋 Strategy")
+        strategy_options = {
+            "Balanced Portfolio": InvestmentStrategy.BALANCED,
+            "Value Investing": InvestmentStrategy.VALUE,
+            "Growth Investing": InvestmentStrategy.GROWTH,
+            "Dividend Income": InvestmentStrategy.DIVIDEND,
+            "Momentum Trading": InvestmentStrategy.MOMENTUM,
+            "Quality Focus": InvestmentStrategy.QUALITY,
+        }
+        strategy_name = st.selectbox(
+            "Investment Strategy",
+            list(strategy_options.keys()),
+            index=0,
+            key="inv_strategy"
+        )
+        strategy = strategy_options[strategy_name]
+
+        # Strategy description
+        strategy_desc = {
+            InvestmentStrategy.BALANCED: "Diversified approach balancing value, growth, and quality factors",
+            InvestmentStrategy.VALUE: "Focus on undervalued stocks with strong fundamentals",
+            InvestmentStrategy.GROWTH: "Target high-growth companies with momentum",
+            InvestmentStrategy.DIVIDEND: "Income-focused with sustainable dividend payers",
+            InvestmentStrategy.MOMENTUM: "Follow price trends and technical signals",
+            InvestmentStrategy.QUALITY: "Premium companies with strong profitability",
+        }
+        st.caption(strategy_desc[strategy])
+
+        st.markdown("---")
+
+        # Risk profile
+        st.subheader("⚖️ Risk Profile")
+        risk_options = {
+            "Conservative": RiskProfile.CONSERVATIVE,
+            "Moderate": RiskProfile.MODERATE,
+            "Aggressive": RiskProfile.AGGRESSIVE,
+        }
+        risk_name = st.selectbox(
+            "Risk Tolerance",
+            list(risk_options.keys()),
+            index=1,
+            key="inv_risk"
+        )
+        risk_profile = risk_options[risk_name]
+
+        risk_desc = {
+            RiskProfile.CONSERVATIVE: "Lower volatility, larger caps, max 20% per position",
+            RiskProfile.MODERATE: "Balanced risk/return, max 25% per position",
+            RiskProfile.AGGRESSIVE: "Higher volatility accepted, max 35% per position",
+        }
+        st.caption(risk_desc[risk_profile])
+
+        st.markdown("---")
+
+        # Universe and stocks
+        st.subheader("🌐 Universe")
+        universe = st.selectbox(
+            "Stock Universe",
+            ["S&P 500", "NASDAQ 100", "Dow Jones 30", "Dividend Aristocrats"],
+            index=0,
+            key="inv_universe"
+        )
+        universe_map = {
+            "S&P 500": "sp500",
+            "NASDAQ 100": "nasdaq100",
+            "Dow Jones 30": "dow30",
+            "Dividend Aristocrats": "dividend"
+        }
+
+        num_stocks = st.slider("Number of Stocks", 5, 20, 10, key="inv_num_stocks")
+
+        st.markdown("---")
+
+        # Monte Carlo settings
+        st.subheader("🎲 Simulation")
+        num_simulations = st.select_slider(
+            "Monte Carlo Simulations",
+            options=[1000, 5000, 10000, 25000, 50000],
+            value=10000,
+            key="inv_simulations"
+        )
+
+        st.markdown("---")
+
+        # Run button
+        run_analysis = st.button("🚀 Generate Recommendations", type="primary", use_container_width=True)
+
+    # Main content
+    if run_analysis:
+        with st.spinner("Analyzing stocks and optimizing portfolio... This may take a few minutes."):
+            manager = get_investment_manager()
+
+            # Run async recommendation generation
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                portfolio = loop.run_until_complete(
+                    manager.generate_recommendations(
+                        investment_amount=investment_amount,
+                        strategy=strategy,
+                        risk_profile=risk_profile,
+                        num_stocks=num_stocks,
+                        universe=universe_map[universe],
+                        num_simulations=num_simulations
+                    )
+                )
+            finally:
+                loop.close()
+
+            # Store in session state
+            st.session_state['investment_portfolio'] = portfolio
+
+    # Display results if available
+    if 'investment_portfolio' in st.session_state:
+        portfolio = st.session_state['investment_portfolio']
+
+        if not portfolio.stocks:
+            st.warning("No stocks met the criteria. Try adjusting your parameters.")
+            return
+
+        st.markdown("---")
+
+        # Portfolio Summary
+        st.markdown("## 📊 Portfolio Recommendation")
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Investment", f"${portfolio.investment_amount:,.0f}")
+        with col2:
+            st.metric("Expected Return (12M)", f"{portfolio.mc_portfolio_median*100:+.1f}%",
+                     delta=f"Sharpe: {portfolio.portfolio_sharpe:.2f}")
+        with col3:
+            st.metric("Projected Value", f"${portfolio.projected_value_12m:,.0f}",
+                     delta=f"${portfolio.projected_gain_12m:+,.0f}")
+        with col4:
+            prob_color = "normal" if portfolio.mc_probability_profit > 0.6 else "off"
+            st.metric("Probability of Profit", f"{portfolio.mc_probability_profit*100:.0f}%")
+
+        st.markdown("---")
+
+        # Tabs for different views
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "📋 Stock Picks",
+            "📈 Projections",
+            "🎯 Allocation",
+            "⚠️ Scenario Analysis",
+            "📊 Monte Carlo Details"
+        ])
+
+        with tab1:
+            display_stock_picks(portfolio)
+
+        with tab2:
+            display_projections(portfolio)
+
+        with tab3:
+            display_allocation(portfolio)
+
+        with tab4:
+            display_scenario_analysis(portfolio)
+
+        with tab5:
+            display_monte_carlo_details(portfolio)
+
+    else:
+        # Instructions
+        st.markdown("""
+        ## How It Works
+
+        The Investment Manager uses a sophisticated multi-factor approach to select stocks and build an optimized portfolio:
+
+        ### 1️⃣ Stock Selection
+        - Screens stocks from your selected universe
+        - Analyzes fundamentals (valuation, growth, quality)
+        - Evaluates technical signals (momentum, trends)
+        - Checks institutional and insider activity
+
+        ### 2️⃣ Sharpe Ratio Optimization
+        - Calculates historical returns and volatilities
+        - Optimizes weights to maximize risk-adjusted returns
+        - Applies position limits based on risk profile
+        - Ensures sector diversification
+
+        ### 3️⃣ Monte Carlo Simulation
+        - Runs thousands of simulations for 12-month projections
+        - Uses correlated returns based on historical data
+        - Provides probability distributions for outcomes
+        - Calculates confidence intervals for returns
+
+        ### 4️⃣ Portfolio Recommendation
+        - Specific stocks with buy reasons
+        - Optimal allocation weights
+        - Shares to buy at current prices
+        - Expected returns with confidence levels
+
+        ---
+
+        ### Get Started
+        Configure your parameters in the sidebar and click **Generate Recommendations**.
+        """)
+
+
+def display_stock_picks(portfolio):
+    """Display individual stock picks with details."""
+    st.subheader("📋 Recommended Stock Picks")
+
+    st.markdown(f"*Strategy: {portfolio.strategy.value} | Risk Profile: {portfolio.risk_profile.value} | Stocks Analyzed: {portfolio.stocks_analyzed}*")
+
+    # Stock picks table
+    picks_data = []
+    for stock in portfolio.stocks:
+        picks_data.append({
+            "Symbol": stock.symbol,
+            "Name": stock.name[:25] + "..." if len(stock.name) > 25 else stock.name,
+            "Sector": stock.sector[:15] if stock.sector else "N/A",
+            "Price": f"${stock.current_price:.2f}",
+            "Weight": f"{stock.weight*100:.1f}%",
+            "Shares": stock.shares_to_buy,
+            "Amount": f"${stock.investment_amount:,.0f}",
+            "Expected Return": f"{stock.mc_median_return*100:+.1f}%",
+            "Target Price": f"${stock.projected_price_12m:.2f}",
+            "Score": f"{stock.composite_score:.0f}",
+        })
+
+    picks_df = pd.DataFrame(picks_data)
+    st.dataframe(picks_df, hide_index=True, use_container_width=True)
+
+    # Detailed view for selected stock
+    st.markdown("---")
+    st.markdown("##### 📝 Stock Details")
+
+    selected = st.selectbox(
+        "Select stock for details",
+        [s.symbol for s in portfolio.stocks],
+        key="pick_detail"
+    )
+
+    stock = next((s for s in portfolio.stocks if s.symbol == selected), None)
+    if stock:
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.markdown(f"**{stock.name}**")
+            st.write(f"Sector: {stock.sector}")
+            st.write(f"Current Price: ${stock.current_price:.2f}")
+            st.write(f"Volatility: {stock.volatility*100:.1f}%")
+            st.write(f"Beta: {stock.beta:.2f}" if stock.beta else "Beta: N/A")
+
+        with col2:
+            st.markdown("**Scores**")
+            st.write(f"Fundamental: {stock.fundamental_score:.0f}/100")
+            st.write(f"Technical: {stock.technical_score:.0f}/100")
+            st.write(f"Quality: {stock.quality_score:.0f}/100")
+            st.write(f"Momentum: {stock.momentum_score:.0f}/100")
+            st.write(f"**Composite: {stock.composite_score:.0f}/100**")
+
+        with col3:
+            st.markdown("**12-Month Projection**")
+            st.write(f"Expected Return: {stock.mc_median_return*100:+.1f}%")
+            st.write(f"Target Price: ${stock.projected_price_12m:.2f}")
+            st.write(f"Bull Case (95th): {stock.mc_percentile_95*100:+.1f}%")
+            st.write(f"Bear Case (5th): {stock.mc_percentile_5*100:+.1f}%")
+            st.write(f"Prob. Positive: {stock.mc_probability_positive*100:.0f}%")
+
+        # Buy reasons and risks
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**✅ Buy Reasons**")
+            if stock.buy_reasons:
+                for reason in stock.buy_reasons[:5]:
+                    st.success(reason)
+            else:
+                st.info("Meets screening criteria")
+
+        with col2:
+            st.markdown("**⚠️ Risk Factors**")
+            if stock.risk_factors:
+                for risk in stock.risk_factors[:5]:
+                    st.warning(risk)
+            else:
+                st.info("No major risks identified")
+
+
+def display_projections(portfolio):
+    """Display portfolio projections and confidence intervals."""
+    st.subheader("📈 12-Month Portfolio Projections")
+
+    # Key metrics
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Mean Return", f"{portfolio.mc_portfolio_mean*100:+.1f}%")
+    with col2:
+        st.metric("Median Return", f"{portfolio.mc_portfolio_median*100:+.1f}%")
+    with col3:
+        st.metric("Std Deviation", f"{portfolio.mc_portfolio_std*100:.1f}%")
+    with col4:
+        st.metric("Beat Market Prob.", f"{portfolio.mc_probability_beat_market*100:.0f}%")
+
+    st.markdown("---")
+
+    # Confidence intervals
+    st.markdown("##### 📊 Return Confidence Intervals")
+
+    intervals_data = {
+        "Scenario": ["Bear Case (5th)", "Pessimistic (25th)", "Median (50th)", "Optimistic (75th)", "Bull Case (95th)"],
+        "Return": [
+            f"{portfolio.mc_portfolio_5th*100:+.1f}%",
+            f"{portfolio.mc_portfolio_25th*100:+.1f}%",
+            f"{portfolio.mc_portfolio_median*100:+.1f}%",
+            f"{portfolio.mc_portfolio_75th*100:+.1f}%",
+            f"{portfolio.mc_portfolio_95th*100:+.1f}%"
+        ],
+        "Portfolio Value": [
+            f"${portfolio.investment_amount * (1 + portfolio.mc_portfolio_5th):,.0f}",
+            f"${portfolio.investment_amount * (1 + portfolio.mc_portfolio_25th):,.0f}",
+            f"${portfolio.investment_amount * (1 + portfolio.mc_portfolio_median):,.0f}",
+            f"${portfolio.investment_amount * (1 + portfolio.mc_portfolio_75th):,.0f}",
+            f"${portfolio.investment_amount * (1 + portfolio.mc_portfolio_95th):,.0f}"
+        ],
+        "Gain/Loss": [
+            f"${portfolio.investment_amount * portfolio.mc_portfolio_5th:+,.0f}",
+            f"${portfolio.investment_amount * portfolio.mc_portfolio_25th:+,.0f}",
+            f"${portfolio.investment_amount * portfolio.mc_portfolio_median:+,.0f}",
+            f"${portfolio.investment_amount * portfolio.mc_portfolio_75th:+,.0f}",
+            f"${portfolio.investment_amount * portfolio.mc_portfolio_95th:+,.0f}"
+        ]
+    }
+
+    st.dataframe(pd.DataFrame(intervals_data), hide_index=True, use_container_width=True)
+
+    # Projection chart
+    st.markdown("---")
+    st.markdown("##### 📉 Return Distribution")
+
+    # Create distribution visualization
+    returns = [portfolio.mc_portfolio_5th, portfolio.mc_portfolio_25th,
+               portfolio.mc_portfolio_median, portfolio.mc_portfolio_75th, portfolio.mc_portfolio_95th]
+    labels = ["5th %ile", "25th %ile", "Median", "75th %ile", "95th %ile"]
+
+    fig = go.Figure()
+
+    # Add bars
+    colors = ['#dc3545', '#ffc107', '#28a745', '#17a2b8', '#007bff']
+    fig.add_trace(go.Bar(
+        x=labels,
+        y=[r * 100 for r in returns],
+        marker_color=colors,
+        text=[f"{r*100:+.1f}%" for r in returns],
+        textposition='outside'
+    ))
+
+    fig.update_layout(
+        title="Projected Returns by Percentile",
+        xaxis_title="Scenario",
+        yaxis_title="Return (%)",
+        height=400,
+        showlegend=False
+    )
+
+    fig.add_hline(y=0, line_dash="dash", line_color="gray")
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Individual stock projections
+    st.markdown("---")
+    st.markdown("##### 📋 Individual Stock Projections")
+
+    stock_proj = []
+    for stock in portfolio.stocks:
+        stock_proj.append({
+            "Symbol": stock.symbol,
+            "Weight": f"{stock.weight*100:.1f}%",
+            "Current": f"${stock.current_price:.2f}",
+            "Bear (5th)": f"${stock.current_price * (1 + stock.mc_percentile_5):.2f}",
+            "Expected": f"${stock.projected_price_12m:.2f}",
+            "Bull (95th)": f"${stock.current_price * (1 + stock.mc_percentile_95):.2f}",
+            "Prob. Profit": f"{stock.mc_probability_positive*100:.0f}%"
+        })
+
+    st.dataframe(pd.DataFrame(stock_proj), hide_index=True, use_container_width=True)
+
+
+def display_allocation(portfolio):
+    """Display portfolio allocation details."""
+    st.subheader("🎯 Portfolio Allocation")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # Stock allocation pie chart
+        fig = px.pie(
+            values=[s.weight for s in portfolio.stocks],
+            names=[s.symbol for s in portfolio.stocks],
+            title="Stock Allocation",
+            hole=0.4
+        )
+        fig.update_layout(height=400)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        # Sector allocation pie chart
+        if portfolio.sector_weights:
+            fig = px.pie(
+                values=list(portfolio.sector_weights.values()),
+                names=list(portfolio.sector_weights.keys()),
+                title="Sector Allocation",
+                hole=0.4
+            )
+            fig.update_layout(height=400)
+            st.plotly_chart(fig, use_container_width=True)
+
+    # Detailed allocation table
+    st.markdown("---")
+    st.markdown("##### 📋 Allocation Details")
+
+    alloc_data = []
+    for stock in sorted(portfolio.stocks, key=lambda x: x.weight, reverse=True):
+        alloc_data.append({
+            "Symbol": stock.symbol,
+            "Name": stock.name[:30] if stock.name else "N/A",
+            "Sector": stock.sector[:20] if stock.sector else "N/A",
+            "Weight": f"{stock.weight*100:.1f}%",
+            "Shares": stock.shares_to_buy,
+            "Price": f"${stock.current_price:.2f}",
+            "Investment": f"${stock.investment_amount:,.0f}",
+            "Sharpe Contrib.": f"{stock.sharpe_contribution:.3f}"
+        })
+
+    st.dataframe(pd.DataFrame(alloc_data), hide_index=True, use_container_width=True)
+
+    # Portfolio metrics
+    st.markdown("---")
+    st.markdown("##### 📊 Portfolio Characteristics")
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Portfolio Beta", f"{portfolio.portfolio_beta:.2f}")
+    with col2:
+        st.metric("Portfolio Volatility", f"{portfolio.portfolio_volatility*100:.1f}%")
+    with col3:
+        st.metric("Sharpe Ratio", f"{portfolio.portfolio_sharpe:.2f}")
+    with col4:
+        st.metric("# of Positions", len(portfolio.stocks))
+
+
+def display_scenario_analysis(portfolio):
+    """Display scenario analysis for different market conditions."""
+    st.subheader("⚠️ Scenario Analysis")
+
+    st.markdown("How your portfolio might perform under different market conditions:")
+
+    manager = get_investment_manager()
+    scenarios = manager.run_scenario_analysis(portfolio)
+
+    # Scenario table
+    scenario_data = []
+    for name, data in scenarios.items():
+        scenario_data.append({
+            "Scenario": name,
+            "Market Return": f"{data['market_return']*100:+.0f}%",
+            "Portfolio Return": f"{data['portfolio_return']*100:+.1f}%",
+            "Portfolio Value": f"${data['projected_value']:,.0f}",
+            "Gain/Loss": f"${data['gain_loss']:+,.0f}"
+        })
+
+    st.dataframe(pd.DataFrame(scenario_data), hide_index=True, use_container_width=True)
+
+    # Scenario chart
+    fig = go.Figure()
+
+    scenarios_list = list(scenarios.items())
+    fig.add_trace(go.Bar(
+        name="Market",
+        x=[s[0] for s in scenarios_list],
+        y=[s[1]['market_return'] * 100 for s in scenarios_list],
+        marker_color='lightblue'
+    ))
+
+    fig.add_trace(go.Bar(
+        name="Portfolio",
+        x=[s[0] for s in scenarios_list],
+        y=[s[1]['portfolio_return'] * 100 for s in scenarios_list],
+        marker_color='darkblue'
+    ))
+
+    fig.update_layout(
+        title="Portfolio vs Market Return by Scenario",
+        xaxis_title="Scenario",
+        yaxis_title="Return (%)",
+        barmode='group',
+        height=400
+    )
+
+    fig.add_hline(y=0, line_dash="dash", line_color="gray")
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Risk interpretation
+    st.markdown("---")
+    st.markdown("##### 🔍 Risk Interpretation")
+
+    # Calculate beta-adjusted expectations
+    avg_beta = portfolio.portfolio_beta
+
+    if avg_beta > 1.2:
+        st.warning(f"""
+        **High Beta Portfolio ({avg_beta:.2f})**
+
+        Your portfolio is more volatile than the market. In bull markets, expect to outperform.
+        In bear markets, expect larger losses. This is appropriate for aggressive investors.
+        """)
+    elif avg_beta < 0.8:
+        st.info(f"""
+        **Low Beta Portfolio ({avg_beta:.2f})**
+
+        Your portfolio is less volatile than the market. It provides downside protection
+        but may underperform in strong bull markets. This is appropriate for conservative investors.
+        """)
+    else:
+        st.success(f"""
+        **Market-Neutral Beta ({avg_beta:.2f})**
+
+        Your portfolio roughly tracks market movements. This provides balanced
+        exposure to market returns with moderate risk.
+        """)
+
+
+def display_monte_carlo_details(portfolio):
+    """Display detailed Monte Carlo simulation results."""
+    st.subheader("📊 Monte Carlo Simulation Details")
+
+    st.markdown(f"*Based on {portfolio.num_simulations:,} simulations over 252 trading days (12 months)*")
+
+    # Summary statistics
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("**Return Statistics**")
+        st.write(f"Mean: {portfolio.mc_portfolio_mean*100:+.2f}%")
+        st.write(f"Median: {portfolio.mc_portfolio_median*100:+.2f}%")
+        st.write(f"Std Dev: {portfolio.mc_portfolio_std*100:.2f}%")
+
+    with col2:
+        st.markdown("**Percentiles**")
+        st.write(f"5th: {portfolio.mc_portfolio_5th*100:+.2f}%")
+        st.write(f"25th: {portfolio.mc_portfolio_25th*100:+.2f}%")
+        st.write(f"75th: {portfolio.mc_portfolio_75th*100:+.2f}%")
+        st.write(f"95th: {portfolio.mc_portfolio_95th*100:+.2f}%")
+
+    with col3:
+        st.markdown("**Probabilities**")
+        st.write(f"Profit (>0%): {portfolio.mc_probability_profit*100:.1f}%")
+        st.write(f"Beat Market (>10%): {portfolio.mc_probability_beat_market*100:.1f}%")
+        loss_prob = 1 - portfolio.mc_probability_profit
+        st.write(f"Loss (<0%): {loss_prob*100:.1f}%")
+
+    st.markdown("---")
+
+    # Methodology explanation
+    st.markdown("##### 📖 Methodology")
+
+    st.markdown("""
+    The Monte Carlo simulation uses **Geometric Brownian Motion** with correlated returns:
+
+    1. **Historical Calibration**: Parameters (mean, volatility, correlations) estimated from 2 years of daily returns
+
+    2. **Correlated Simulation**: Uses Cholesky decomposition to generate correlated random returns:
+       ```
+       Returns = μ + L × Z
+       where L = Cholesky(Covariance Matrix), Z = standard normal random variables
+       ```
+
+    3. **Path Generation**: For each simulation:
+       - Generate 252 daily returns (one year)
+       - Compound to get annual return
+       - Weight by portfolio allocation
+
+    4. **Distribution Analysis**: Aggregate all simulation outcomes to derive:
+       - Expected returns (mean/median)
+       - Risk measures (std dev, percentiles)
+       - Probability estimates
+
+    **Limitations**:
+    - Assumes returns are normally distributed (may underestimate tail risks)
+    - Based on historical correlations (may change in crisis)
+    - Does not account for transaction costs or taxes
+    """)
+
+    # Export functionality
+    st.markdown("---")
+    st.markdown("##### 📥 Export Recommendations")
+
+    # Create export data
+    export_data = []
+    for stock in portfolio.stocks:
+        export_data.append({
+            'Symbol': stock.symbol,
+            'Name': stock.name,
+            'Sector': stock.sector,
+            'Current Price': stock.current_price,
+            'Weight (%)': stock.weight * 100,
+            'Shares to Buy': stock.shares_to_buy,
+            'Investment ($)': stock.investment_amount,
+            'Expected Return (%)': stock.mc_median_return * 100,
+            'Target Price': stock.projected_price_12m,
+            'Bear Case Return (%)': stock.mc_percentile_5 * 100,
+            'Bull Case Return (%)': stock.mc_percentile_95 * 100,
+            'Prob. Positive (%)': stock.mc_probability_positive * 100,
+            'Composite Score': stock.composite_score,
+            'Fundamental Score': stock.fundamental_score,
+            'Technical Score': stock.technical_score,
+            'Buy Reasons': '; '.join(stock.buy_reasons),
+            'Risk Factors': '; '.join(stock.risk_factors)
+        })
+
+    export_df = pd.DataFrame(export_data)
+    csv = export_df.to_csv(index=False)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button(
+            label="📥 Download Stock Picks (CSV)",
+            data=csv,
+            file_name=f"investment_recommendations_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv"
+        )
+
+    with col2:
+        # Summary JSON
+        summary = {
+            'analysis_date': portfolio.analysis_date,
+            'strategy': portfolio.strategy.value,
+            'risk_profile': portfolio.risk_profile.value,
+            'investment_amount': portfolio.investment_amount,
+            'num_stocks': len(portfolio.stocks),
+            'expected_return_12m': portfolio.mc_portfolio_median,
+            'projected_value': portfolio.projected_value_12m,
+            'sharpe_ratio': portfolio.portfolio_sharpe,
+            'portfolio_beta': portfolio.portfolio_beta,
+            'probability_profit': portfolio.mc_probability_profit,
+            'num_simulations': portfolio.num_simulations
+        }
+        st.download_button(
+            label="📥 Download Summary (JSON)",
+            data=json.dumps(summary, indent=2),
+            file_name=f"portfolio_summary_{datetime.now().strftime('%Y%m%d')}.json",
+            mime="application/json"
+        )
+
+
 def main():
     """Main Streamlit app with navigation."""
 
@@ -3908,7 +4585,7 @@ def main():
 
     page = st.sidebar.radio(
         "Navigation",
-        ["📈 Stock Analysis", "📊 Portfolio Builder", "🔍 Stock Screener", "🛠️ Asset Manager Tools", "❓ Help & Docs"],
+        ["📈 Stock Analysis", "📊 Portfolio Builder", "🔍 Stock Screener", "💼 Investment Manager", "🛠️ Asset Manager Tools", "❓ Help & Docs"],
         label_visibility="collapsed"
     )
 
@@ -3920,6 +4597,8 @@ def main():
         display_portfolio_builder_page()
     elif page == "🔍 Stock Screener":
         display_stock_screener_page()
+    elif page == "💼 Investment Manager":
+        display_investment_manager_page()
     elif page == "🛠️ Asset Manager Tools":
         display_asset_manager_tools_page()
     else:

@@ -67,6 +67,15 @@ from .institutional_tracking import (
     OwnershipSummary,
     get_institutional_tracker,
 )
+from .investment_manager import (
+    InvestmentManager,
+    StockPick,
+    PortfolioRecommendation,
+    MonteCarloResult,
+    RiskProfile,
+    InvestmentStrategy,
+    get_investment_manager,
+)
 
 __all__ = [
     # Stock Screener
@@ -128,4 +137,12 @@ __all__ = [
     "InsiderSentiment",
     "OwnershipSummary",
     "get_institutional_tracker",
+    # Investment Manager
+    "InvestmentManager",
+    "StockPick",
+    "PortfolioRecommendation",
+    "MonteCarloResult",
+    "RiskProfile",
+    "InvestmentStrategy",
+    "get_investment_manager",
 ]
