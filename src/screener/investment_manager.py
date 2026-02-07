@@ -218,20 +218,53 @@ class InvestmentManager:
         # Score and rank stocks
         scored_stocks = self._score_stocks(screened, strategy)
 
-        # Select top stocks
-        top_stocks = sorted(scored_stocks, key=lambda x: x.composite_score, reverse=True)[:num_stocks * 2]
+        # Select top stocks (get more than needed for filtering)
+        top_stocks = sorted(scored_stocks, key=lambda x: x.composite_score, reverse=True)[:num_stocks * 3]
 
         # Filter for diversification
-        diversified = self._ensure_diversification(top_stocks, num_stocks)
+        diversified = self._ensure_diversification(top_stocks, num_stocks * 2)
 
-        # Optimize weights using Sharpe ratio
-        optimized = self._optimize_weights_sharpe(diversified, risk_profile)
+        # Run Monte Carlo simulations FIRST to get expected returns
+        self._run_monte_carlo_simulations(diversified, num_simulations)
+
+        # FILTER OUT stocks with negative expected returns or low probability of profit
+        positive_stocks = [
+            stock for stock in diversified
+            if stock.mc_median_return > 0.02  # At least 2% expected return
+            and stock.mc_probability_positive > 0.50  # More than 50% chance of profit
+        ]
+
+        # If not enough positive stocks, relax criteria slightly
+        if len(positive_stocks) < num_stocks:
+            positive_stocks = [
+                stock for stock in diversified
+                if stock.mc_median_return > 0  # Just positive expected return
+                and stock.mc_probability_positive > 0.45
+            ]
+
+        # If still not enough, take the best by expected return
+        if len(positive_stocks) < 3:
+            positive_stocks = sorted(diversified, key=lambda x: x.mc_median_return, reverse=True)[:num_stocks]
+            # Still filter out clearly negative ones
+            positive_stocks = [s for s in positive_stocks if s.mc_median_return > -0.05]
+
+        if not positive_stocks:
+            return PortfolioRecommendation(
+                strategy=strategy,
+                risk_profile=risk_profile,
+                investment_amount=investment_amount,
+                analysis_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
+                stocks_analyzed=len(screened)
+            )
+
+        # Take only the number of stocks requested
+        final_stocks = positive_stocks[:num_stocks]
+
+        # Optimize weights using Sharpe ratio (on filtered stocks)
+        optimized = self._optimize_weights_sharpe(final_stocks, risk_profile)
 
         # Allocate investment
         allocated = self._allocate_investment(optimized, investment_amount)
-
-        # Run Monte Carlo simulations
-        self._run_monte_carlo_simulations(allocated, num_simulations)
 
         # Calculate portfolio metrics
         portfolio = self._calculate_portfolio_metrics(
