@@ -4635,7 +4635,10 @@ def display_paper_portfolios():
     st.subheader("📝 Paper Portfolio Tracker")
     st.markdown("*Track virtual portfolios to test your investment strategies*")
 
-    pm = get_paper_portfolio_manager()
+    # Use session state to persist portfolio manager
+    if 'paper_portfolio_manager' not in st.session_state:
+        st.session_state.paper_portfolio_manager = get_paper_portfolio_manager()
+    pm = st.session_state.paper_portfolio_manager
 
     # Check if we have a current recommendation to create from
     has_recommendation = 'investment_portfolio' in st.session_state
@@ -4653,16 +4656,39 @@ def display_paper_portfolios():
         if not portfolios:
             st.info("No paper portfolios yet. Create one from your recommendations or manually!")
         else:
+            # Show portfolio overview first
+            st.markdown("##### Your Paper Portfolios")
+
+            # Quick overview table
+            overview_data = []
+            for p in portfolios:
+                overview_data.append({
+                    'Name': p.name,
+                    'Created': p.created_date[:10],
+                    'Holdings': len(p.holdings),
+                    'Initial': f"${p.initial_investment:,.0f}",
+                    'Current': f"${p.get_total_value():,.2f}",
+                    'Return': f"{p.get_total_return_pct():+.2f}%"
+                })
+
+            overview_df = pd.DataFrame(overview_data)
+            st.dataframe(overview_df, use_container_width=True, hide_index=True)
+
+            st.markdown("---")
+
             # Portfolio selector
             portfolio_names = [p.name for p in portfolios]
             selected_name = st.selectbox(
-                "Select Portfolio",
+                "Select Portfolio to View Details",
                 portfolio_names,
                 key="paper_portfolio_select"
             )
 
             portfolio = pm.get_portfolio(selected_name)
             if portfolio:
+                st.markdown(f"### {portfolio.name}")
+                st.caption(f"Strategy: {portfolio.strategy} | Created: {portfolio.created_date}")
+
                 # Portfolio header
                 col1, col2, col3, col4 = st.columns(4)
                 total_value = portfolio.get_total_value()
@@ -4675,7 +4701,6 @@ def display_paper_portfolios():
                 with col2:
                     st.metric("Total Cost", f"${total_cost:,.2f}")
                 with col3:
-                    delta_color = "normal" if total_return >= 0 else "inverse"
                     st.metric("Total Return", f"${total_return:,.2f}",
                              delta=f"{return_pct:+.2f}%")
                 with col4:
@@ -4686,41 +4711,43 @@ def display_paper_portfolios():
 
                 # Holdings table
                 st.markdown("##### Holdings")
-                holdings = portfolio.get_holdings_summary()
 
-                if holdings:
-                    holdings_df = pd.DataFrame(holdings)
-                    holdings_df = holdings_df.rename(columns={
-                        'symbol': 'Symbol',
-                        'shares': 'Shares',
-                        'purchase_price': 'Buy Price',
-                        'current_price': 'Current Price',
-                        'cost_basis': 'Cost Basis',
-                        'current_value': 'Current Value',
-                        'gain_loss': 'Gain/Loss',
-                        'return_pct': 'Return %',
-                        'weight': 'Weight %',
-                        'purchase_date': 'Purchase Date'
-                    })
+                if not portfolio.holdings:
+                    st.warning("This portfolio has no holdings. The stocks may not have been added properly.")
+                    st.info("You can delete this portfolio and create a new one from your recommendations.")
+                else:
+                    holdings = portfolio.get_holdings_summary()
 
-                    # Format the dataframe
-                    st.dataframe(
-                        holdings_df.style.format({
-                            'Shares': '{:.2f}',
-                            'Buy Price': '${:.2f}',
-                            'Current Price': '${:.2f}',
-                            'Cost Basis': '${:,.2f}',
-                            'Current Value': '${:,.2f}',
-                            'Gain/Loss': '${:+,.2f}',
-                            'Return %': '{:+.2f}%',
-                            'Weight %': '{:.1f}%'
-                        }).applymap(
-                            lambda x: 'color: green' if isinstance(x, (int, float)) and x > 0 else ('color: red' if isinstance(x, (int, float)) and x < 0 else ''),
-                            subset=['Gain/Loss', 'Return %']
-                        ),
-                        use_container_width=True,
-                        hide_index=True
-                    )
+                    if holdings:
+                        holdings_df = pd.DataFrame(holdings)
+                        holdings_df = holdings_df.rename(columns={
+                            'symbol': 'Symbol',
+                            'shares': 'Shares',
+                            'purchase_price': 'Buy Price',
+                            'current_price': 'Current Price',
+                            'cost_basis': 'Cost Basis',
+                            'current_value': 'Current Value',
+                            'gain_loss': 'Gain/Loss',
+                            'return_pct': 'Return %',
+                            'weight': 'Weight %',
+                            'purchase_date': 'Purchase Date'
+                        })
+
+                        # Format the dataframe
+                        st.dataframe(
+                            holdings_df.style.format({
+                                'Shares': '{:.2f}',
+                                'Buy Price': '${:.2f}',
+                                'Current Price': '${:.2f}',
+                                'Cost Basis': '${:,.2f}',
+                                'Current Value': '${:,.2f}',
+                                'Gain/Loss': '${:+,.2f}',
+                                'Return %': '{:+.2f}%',
+                                'Weight %': '{:.1f}%'
+                            }),
+                            use_container_width=True,
+                            hide_index=True
+                        )
 
                 # Performance chart using snapshots
                 if len(portfolio.snapshots) > 1:
@@ -4750,6 +4777,7 @@ def display_paper_portfolios():
 
                 with col3:
                     # Export
+                    holdings = portfolio.get_holdings_summary()
                     export_data = {
                         'name': portfolio.name,
                         'created': portfolio.created_date,
