@@ -204,6 +204,63 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+# ============== AUTHENTICATION ==============
+def check_authentication() -> bool:
+    """Check if user is authenticated."""
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    return st.session_state.authenticated
+
+
+def display_login_page():
+    """Display login page."""
+    # Center the login form
+    col1, col2, col3 = st.columns([1, 2, 1])
+
+    with col2:
+        st.markdown("""
+        <div style="text-align: center; padding: 2rem 0;">
+            <h1 style="color: #1976d2; font-size: 3rem; margin-bottom: 0.5rem;">🏦 TrueNorth Investing</h1>
+            <p style="color: #666; font-size: 1.2rem;">Stock Analysis & Portfolio Management Platform</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        # Login form
+        with st.form("login_form"):
+            st.markdown("### Sign In")
+
+            email = st.text_input("Email", placeholder="Enter your email")
+            password = st.text_input("Password", type="password", placeholder="Enter your password")
+
+            submit = st.form_submit_button("Sign In", use_container_width=True)
+
+            if submit:
+                # Validate credentials
+                if email == "accede.excellence@gmail.com" and password == "Wealth@1234":
+                    st.session_state.authenticated = True
+                    st.session_state.user_email = email
+                    st.rerun()
+                else:
+                    st.error("Invalid email or password. Please try again.")
+
+        st.markdown("""
+        <div style="text-align: center; padding: 2rem 0; color: #888;">
+            <p>Welcome to TrueNorth Investing Platform</p>
+            <p style="font-size: 0.8rem;">Powered by Multi-Agent AI Analysis</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+def logout():
+    """Log out the user."""
+    st.session_state.authenticated = False
+    if "user_email" in st.session_state:
+        del st.session_state.user_email
+    st.rerun()
+
+
 def get_score_color(score: Optional[float]) -> str:
     """Get color based on score value."""
     if score is None:
@@ -4580,8 +4637,23 @@ def display_monte_carlo_details(portfolio):
 def main():
     """Main Streamlit app with navigation."""
 
-    # Navigation
+    # Check authentication first
+    if not check_authentication():
+        display_login_page()
+        return
+
+    # Navigation (only shown when authenticated)
     st.sidebar.title("🏦 TrueNorth Investing")
+
+    # Show logged in user
+    if "user_email" in st.session_state:
+        st.sidebar.markdown(f"👤 **{st.session_state.user_email}**")
+
+    # Logout button
+    if st.sidebar.button("🚪 Logout", use_container_width=True):
+        logout()
+
+    st.sidebar.markdown("---")
 
     page = st.sidebar.radio(
         "Navigation",
