@@ -51,6 +51,8 @@ from src.screener import (
     get_investment_manager,
     InvestmentStrategy,
     RiskProfile,
+    # Paper Portfolio
+    get_paper_portfolio_manager,
 )
 from src.utils.yfinance_cache import get_ticker_info, get_ticker_history
 
@@ -4115,12 +4117,13 @@ def display_investment_manager_page():
         st.markdown("---")
 
         # Tabs for different views
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
             "📋 Stock Picks",
             "📈 Projections",
             "🎯 Allocation",
             "⚠️ Scenario Analysis",
-            "📊 Monte Carlo Details"
+            "📊 Monte Carlo Details",
+            "📝 Paper Portfolio"
         ])
 
         with tab1:
@@ -4137,6 +4140,9 @@ def display_investment_manager_page():
 
         with tab5:
             display_monte_carlo_details(portfolio)
+
+        with tab6:
+            display_paper_portfolios()
 
     else:
         # Instructions
@@ -4622,6 +4628,361 @@ def display_monte_carlo_details(portfolio):
             file_name=f"portfolio_summary_{datetime.now().strftime('%Y%m%d')}.json",
             mime="application/json"
         )
+
+
+def display_paper_portfolios():
+    """Display paper portfolio management interface."""
+    st.subheader("📝 Paper Portfolio Tracker")
+    st.markdown("*Track virtual portfolios to test your investment strategies*")
+
+    pm = get_paper_portfolio_manager()
+
+    # Check if we have a current recommendation to create from
+    has_recommendation = 'investment_portfolio' in st.session_state
+
+    # Tab layout for paper portfolios
+    paper_tab1, paper_tab2, paper_tab3 = st.tabs([
+        "📋 My Portfolios",
+        "➕ Create New",
+        "📊 Compare Portfolios"
+    ])
+
+    with paper_tab1:
+        portfolios = pm.get_all_portfolios()
+
+        if not portfolios:
+            st.info("No paper portfolios yet. Create one from your recommendations or manually!")
+        else:
+            # Portfolio selector
+            portfolio_names = [p.name for p in portfolios]
+            selected_name = st.selectbox(
+                "Select Portfolio",
+                portfolio_names,
+                key="paper_portfolio_select"
+            )
+
+            portfolio = pm.get_portfolio(selected_name)
+            if portfolio:
+                # Portfolio header
+                col1, col2, col3, col4 = st.columns(4)
+                total_value = portfolio.get_total_value()
+                total_cost = portfolio.get_total_cost()
+                total_return = portfolio.get_total_return()
+                return_pct = portfolio.get_total_return_pct()
+
+                with col1:
+                    st.metric("Total Value", f"${total_value:,.2f}")
+                with col2:
+                    st.metric("Total Cost", f"${total_cost:,.2f}")
+                with col3:
+                    delta_color = "normal" if total_return >= 0 else "inverse"
+                    st.metric("Total Return", f"${total_return:,.2f}",
+                             delta=f"{return_pct:+.2f}%")
+                with col4:
+                    cash = portfolio.get_cash_remaining()
+                    st.metric("Cash Remaining", f"${cash:,.2f}")
+
+                st.markdown("---")
+
+                # Holdings table
+                st.markdown("##### Holdings")
+                holdings = portfolio.get_holdings_summary()
+
+                if holdings:
+                    holdings_df = pd.DataFrame(holdings)
+                    holdings_df = holdings_df.rename(columns={
+                        'symbol': 'Symbol',
+                        'shares': 'Shares',
+                        'purchase_price': 'Buy Price',
+                        'current_price': 'Current Price',
+                        'cost_basis': 'Cost Basis',
+                        'current_value': 'Current Value',
+                        'gain_loss': 'Gain/Loss',
+                        'return_pct': 'Return %',
+                        'weight': 'Weight %',
+                        'purchase_date': 'Purchase Date'
+                    })
+
+                    # Format the dataframe
+                    st.dataframe(
+                        holdings_df.style.format({
+                            'Shares': '{:.2f}',
+                            'Buy Price': '${:.2f}',
+                            'Current Price': '${:.2f}',
+                            'Cost Basis': '${:,.2f}',
+                            'Current Value': '${:,.2f}',
+                            'Gain/Loss': '${:+,.2f}',
+                            'Return %': '{:+.2f}%',
+                            'Weight %': '{:.1f}%'
+                        }).applymap(
+                            lambda x: 'color: green' if isinstance(x, (int, float)) and x > 0 else ('color: red' if isinstance(x, (int, float)) and x < 0 else ''),
+                            subset=['Gain/Loss', 'Return %']
+                        ),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+
+                # Performance chart using snapshots
+                if len(portfolio.snapshots) > 1:
+                    st.markdown("##### Performance History")
+                    snapshot_data = [{
+                        'Date': s.date,
+                        'Value': s.total_value,
+                        'Return %': s.return_pct
+                    } for s in portfolio.snapshots]
+                    snap_df = pd.DataFrame(snapshot_data)
+                    st.line_chart(snap_df.set_index('Date')['Value'])
+
+                # Actions
+                st.markdown("---")
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    if st.button("📸 Take Snapshot", key="take_snapshot"):
+                        portfolio.take_snapshot()
+                        pm._save()
+                        st.success("Snapshot saved!")
+                        st.rerun()
+
+                with col2:
+                    if st.button("🗑️ Delete Portfolio", key="delete_portfolio"):
+                        st.session_state.confirm_delete = selected_name
+
+                with col3:
+                    # Export
+                    export_data = {
+                        'name': portfolio.name,
+                        'created': portfolio.created_date,
+                        'initial_investment': portfolio.initial_investment,
+                        'current_value': total_value,
+                        'total_return': total_return,
+                        'return_pct': return_pct,
+                        'holdings': holdings
+                    }
+                    st.download_button(
+                        "📥 Export",
+                        data=json.dumps(export_data, indent=2),
+                        file_name=f"paper_portfolio_{selected_name}_{datetime.now().strftime('%Y%m%d')}.json",
+                        mime="application/json",
+                        key="export_paper_portfolio"
+                    )
+
+                # Confirm delete
+                if st.session_state.get('confirm_delete') == selected_name:
+                    st.warning(f"Are you sure you want to delete '{selected_name}'?")
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        if st.button("Yes, Delete", type="primary", key="confirm_del"):
+                            pm.delete_portfolio(selected_name)
+                            st.session_state.confirm_delete = None
+                            st.success("Portfolio deleted!")
+                            st.rerun()
+                    with c2:
+                        if st.button("Cancel", key="cancel_del"):
+                            st.session_state.confirm_delete = None
+                            st.rerun()
+
+    with paper_tab2:
+        st.markdown("##### Create New Paper Portfolio")
+
+        # Option to create from recommendations or manually
+        create_mode = st.radio(
+            "Creation Method",
+            ["From Current Recommendations", "Manual Entry"],
+            key="paper_create_mode",
+            horizontal=True
+        )
+
+        if create_mode == "From Current Recommendations":
+            if not has_recommendation:
+                st.warning("Generate investment recommendations first to create a portfolio from them.")
+            else:
+                rec_portfolio = st.session_state['investment_portfolio']
+
+                with st.form("create_from_rec"):
+                    portfolio_name = st.text_input(
+                        "Portfolio Name",
+                        value=f"Paper Portfolio {datetime.now().strftime('%Y-%m-%d')}",
+                        key="new_paper_name"
+                    )
+                    description = st.text_area(
+                        "Description (optional)",
+                        value=f"Created from {rec_portfolio.strategy.value} strategy recommendations",
+                        key="new_paper_desc"
+                    )
+
+                    st.markdown("##### Stocks to Include")
+                    stocks_data = []
+                    for stock in rec_portfolio.stocks:
+                        if stock.shares_to_buy > 0:
+                            stocks_data.append({
+                                'Include': True,
+                                'Symbol': stock.symbol,
+                                'Shares': stock.shares_to_buy,
+                                'Price': stock.current_price,
+                                'Investment': stock.investment_amount
+                            })
+
+                    if stocks_data:
+                        stocks_df = pd.DataFrame(stocks_data)
+                        edited_df = st.data_editor(
+                            stocks_df,
+                            use_container_width=True,
+                            num_rows="fixed",
+                            key="edit_stocks_from_rec"
+                        )
+
+                        total_investment = edited_df[edited_df['Include']]['Investment'].sum()
+                        st.markdown(f"**Total Investment:** ${total_investment:,.2f}")
+
+                    submitted = st.form_submit_button("Create Portfolio", type="primary")
+
+                    if submitted:
+                        if not portfolio_name:
+                            st.error("Please enter a portfolio name")
+                        elif portfolio_name in [p.name for p in pm.get_all_portfolios()]:
+                            st.error("A portfolio with this name already exists")
+                        else:
+                            # Create stocks list from edited data
+                            stocks_to_add = []
+                            for _, row in edited_df.iterrows():
+                                if row['Include']:
+                                    stocks_to_add.append({
+                                        'symbol': row['Symbol'],
+                                        'shares': row['Shares'],
+                                        'current_price': row['Price']
+                                    })
+
+                            pm.create_from_recommendations(
+                                name=portfolio_name,
+                                stocks=stocks_to_add,
+                                initial_investment=total_investment,
+                                description=description,
+                                strategy=rec_portfolio.strategy.value
+                            )
+                            st.success(f"Created paper portfolio: {portfolio_name}")
+                            st.rerun()
+
+        else:  # Manual Entry
+            with st.form("create_manual"):
+                portfolio_name = st.text_input(
+                    "Portfolio Name",
+                    value=f"Manual Portfolio {datetime.now().strftime('%Y-%m-%d')}",
+                    key="manual_paper_name"
+                )
+                initial_investment = st.number_input(
+                    "Initial Investment ($)",
+                    min_value=1000,
+                    max_value=10000000,
+                    value=10000,
+                    step=1000,
+                    key="manual_paper_investment"
+                )
+                description = st.text_area(
+                    "Description (optional)",
+                    key="manual_paper_desc"
+                )
+                strategy = st.selectbox(
+                    "Strategy",
+                    ["Manual", "Growth", "Value", "Dividend", "Balanced"],
+                    key="manual_paper_strategy"
+                )
+
+                st.markdown("##### Add Holdings")
+                st.caption("Enter stocks in format: SYMBOL, SHARES, PRICE (one per line)")
+                holdings_text = st.text_area(
+                    "Holdings",
+                    placeholder="AAPL, 10, 175.50\nMSFT, 5, 380.25\nGOOGL, 3, 140.00",
+                    key="manual_holdings"
+                )
+
+                submitted = st.form_submit_button("Create Portfolio", type="primary")
+
+                if submitted:
+                    if not portfolio_name:
+                        st.error("Please enter a portfolio name")
+                    elif portfolio_name in [p.name for p in pm.get_all_portfolios()]:
+                        st.error("A portfolio with this name already exists")
+                    else:
+                        # Parse holdings
+                        stocks_to_add = []
+                        if holdings_text.strip():
+                            for line in holdings_text.strip().split('\n'):
+                                parts = [p.strip() for p in line.split(',')]
+                                if len(parts) >= 3:
+                                    try:
+                                        stocks_to_add.append({
+                                            'symbol': parts[0].upper(),
+                                            'shares': float(parts[1]),
+                                            'current_price': float(parts[2])
+                                        })
+                                    except ValueError:
+                                        st.error(f"Invalid format: {line}")
+                                        continue
+
+                        portfolio = pm.create_from_recommendations(
+                            name=portfolio_name,
+                            stocks=stocks_to_add,
+                            initial_investment=initial_investment,
+                            description=description,
+                            strategy=strategy
+                        )
+
+                        if portfolio:
+                            st.success(f"Created paper portfolio: {portfolio_name}")
+                            st.rerun()
+
+    with paper_tab3:
+        portfolios = pm.get_all_portfolios()
+
+        if len(portfolios) < 2:
+            st.info("Create at least 2 portfolios to compare them.")
+        else:
+            st.markdown("##### Portfolio Comparison")
+
+            comparison = pm.get_portfolio_comparison()
+            if comparison:
+                comp_df = pd.DataFrame(comparison)
+                comp_df = comp_df.rename(columns={
+                    'name': 'Portfolio',
+                    'created_date': 'Created',
+                    'initial_investment': 'Initial ($)',
+                    'total_value': 'Current Value ($)',
+                    'cash_remaining': 'Cash ($)',
+                    'total_return': 'Return ($)',
+                    'return_pct': 'Return %',
+                    'num_holdings': '# Holdings',
+                    'strategy': 'Strategy'
+                })
+
+                st.dataframe(
+                    comp_df.style.format({
+                        'Initial ($)': '${:,.0f}',
+                        'Current Value ($)': '${:,.2f}',
+                        'Cash ($)': '${:,.2f}',
+                        'Return ($)': '${:+,.2f}',
+                        'Return %': '{:+.2f}%'
+                    }).applymap(
+                        lambda x: 'color: green' if isinstance(x, (int, float)) and x > 0 else ('color: red' if isinstance(x, (int, float)) and x < 0 else ''),
+                        subset=['Return ($)', 'Return %']
+                    ),
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+                # Comparison chart
+                st.markdown("##### Return Comparison")
+                chart_data = pd.DataFrame({
+                    'Portfolio': [c['name'] for c in comparison],
+                    'Return %': [c['return_pct'] for c in comparison]
+                })
+                st.bar_chart(chart_data.set_index('Portfolio'))
+
+            # Update all snapshots button
+            if st.button("📸 Update All Snapshots", key="update_all_snapshots"):
+                pm.update_snapshots()
+                st.success("All portfolio snapshots updated!")
+                st.rerun()
 
 
 def display_dashboard():

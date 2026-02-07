@@ -76,6 +76,13 @@ from .investment_manager import (
     InvestmentStrategy,
     get_investment_manager,
 )
+from .paper_portfolio import (
+    PaperPortfolioManager,
+    PaperPortfolio,
+    PaperHolding,
+    PortfolioSnapshot,
+    get_paper_portfolio_manager,
+)
 
 __all__ = [
     # Stock Screener
@@ -145,4 +152,10 @@ __all__ = [
     "RiskProfile",
     "InvestmentStrategy",
     "get_investment_manager",
+    # Paper Portfolio
+    "PaperPortfolioManager",
+    "PaperPortfolio",
+    "PaperHolding",
+    "PortfolioSnapshot",
+    "get_paper_portfolio_manager",
 ]
