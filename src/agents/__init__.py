@@ -9,7 +9,7 @@ from .technical_agent import TechnicalAnalysisAgent
 from .sentiment_agent import SentimentAnalysisAgent
 from .risk_agent import RiskAssessmentAgent
 
-# Ecosystem Analysis Agents (Bridgewater-style)
+# Ecosystem Analysis Agents (TrueNorth-style)
 from .supply_chain_agent import SupplyChainAgent
 from .customer_agent import CustomerAnalysisAgent
 from .competitive_agent import CompetitiveAnalysisAgent

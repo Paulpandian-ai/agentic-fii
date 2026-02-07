@@ -57,7 +57,7 @@ from src.utils.yfinance_cache import get_ticker_info, get_ticker_history
 
 # Page configuration
 st.set_page_config(
-    page_title="Stock Analysis Platform - Bridgewater Style",
+    page_title="TrueNorth Investing - Stock Analysis Platform",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -1603,7 +1603,7 @@ def display_stock_analysis_page():
     """Display the stock analysis page."""
     # Header
     st.markdown('<h1 class="main-header">📈 Stock Analysis Platform</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center; color: gray;">Bridgewater-Style Multi-Agent Analysis System</p>',
+    st.markdown('<p style="text-align: center; color: gray;">TrueNorth Multi-Agent Analysis System</p>',
                 unsafe_allow_html=True)
 
     # Sidebar
@@ -3088,7 +3088,7 @@ def display_risk_analytics_tool():
 def display_help_page():
     """Display comprehensive help and documentation."""
     st.markdown('<h1 class="main-header">❓ Help & Documentation</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center; color: gray;">Complete Guide to Bridgewater Analytics Platform</p>',
+    st.markdown('<p style="text-align: center; color: gray;">Complete Guide to TrueNorth Investing Platform</p>',
                 unsafe_allow_html=True)
 
     # Table of contents
@@ -3107,7 +3107,7 @@ def display_help_page():
         st.markdown("""
         ## Platform Overview
 
-        **Bridgewater Analytics** is a comprehensive stock analysis platform inspired by institutional
+        **TrueNorth Investing** is a comprehensive stock analysis platform inspired by institutional
         investment practices. It combines multi-agent AI analysis with professional-grade portfolio
         management tools.
 
@@ -4581,7 +4581,7 @@ def main():
     """Main Streamlit app with navigation."""
 
     # Navigation
-    st.sidebar.title("🏦 Bridgewater Analytics")
+    st.sidebar.title("🏦 TrueNorth Investing")
 
     page = st.sidebar.radio(
         "Navigation",

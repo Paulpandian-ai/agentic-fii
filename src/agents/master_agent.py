@@ -37,7 +37,7 @@ from src.models.schemas import (
 
 class MasterAgent:
     """
-    Master Agent that orchestrates all servant agents (Bridgewater-style).
+    Master Agent that orchestrates all servant agents (TrueNorth-style).
 
     The Master Agent is responsible for:
     - Triggering servant agents (sequentially or in parallel)

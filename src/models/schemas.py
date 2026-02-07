@@ -176,7 +176,7 @@ class RiskMetrics(BaseModel):
     score: Optional[float] = Field(None, ge=0, le=100, description="Risk score 0-100 (higher = safer)")
 
 
-# ============== NEW SCHEMAS FOR BRIDGEWATER-STYLE ANALYSIS ==============
+# ============== NEW SCHEMAS FOR TRUENORTH-STYLE ANALYSIS ==============
 
 
 class SupplierInfo(BaseModel):
@@ -558,7 +558,7 @@ class AnalysisReport(BaseModel):
     sentiment_analysis: Optional[SentimentData] = None
     risk_assessment: Optional[RiskMetrics] = None
 
-    # Ecosystem Agent Results (Bridgewater-style)
+    # Ecosystem Agent Results (TrueNorth-style)
     supply_chain_analysis: Optional[SupplyChainAnalysis] = None
     customer_analysis: Optional[CustomerAnalysis] = None
     competitive_analysis: Optional[CompetitiveAnalysis] = None
